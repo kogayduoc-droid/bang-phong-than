@@ -177,6 +177,8 @@
                 note: ''
             },
             
+            hallOfFameTab: 'ca-nhan',
+            hallOfFameGroup: null,
             selectedStudentForRewards: null,
             editingStudentId: null,
             editingGroupId: null,
@@ -566,6 +568,16 @@ function renderHeader() {
                     pickerAnimationId = requestAnimationFrame(animatePicker);
                 }, 50);
             }
+
+            // Trang Học sinh: áp lại bộ lọc tìm kiếm + lọc tổ sau mỗi lần vẽ lại
+            if (state.currentTab === 'hoc-sinh' && typeof window.applyStudentFilter === 'function') {
+                setTimeout(window.applyStudentFilter, 0);
+            }
+
+            // Bảng Phong Thần đang mở thì cập nhật lại theo dữ liệu mới
+            if (document.getElementById('hall-of-fame-modal') && typeof window.renderHallOfFame === 'function') {
+                window.renderHallOfFame();
+            }
         }
     function renderViewTongQuan() {
     // --- 1. LẤY DỮ LIỆU HÔM NAY ĐỂ ĐÁNH GIÁ (YÊU CẦU 3) ---
@@ -875,119 +887,322 @@ function renderHeader() {
         </div>
     `;
 }
-      function renderViewHocSinh() {
-    const isBGH = state.auth && state.auth.role === 'bgh';
-    
-    const studentsHtml = state.students.map(s => {
-        const group = state.groups.find(g => g.name === s.group); 
-        let borderColorClass = 'border-slate-200';
-        if (group && group.color) {
-            if (group.color.includes('red')) borderColorClass = 'border-red-400';
-            else if (group.color.includes('green')) borderColorClass = 'border-emerald-400';
-            else if (group.color.includes('yellow')) borderColorClass = 'border-yellow-400';
-            else if (group.color.includes('blue')) borderColorClass = 'border-blue-400';
-            else if (group.color.includes('purple')) borderColorClass = 'border-purple-400';
-        }
-        
-        const currentPoints = s.points || 0;
-        
-        let actionAreaHtml = '';
-        if (isBGH) {
-            actionAreaHtml = `
-                <div class="w-full mt-2 mb-6 px-4">
-                    <button onclick="openStudentHistoryModal(${s.id})" class="w-full py-2.5 bg-indigo-50 text-indigo-600 font-bold rounded-xl text-xs hover:bg-indigo-100 transition-colors flex items-center justify-center gap-2 border border-indigo-100 shadow-sm">
-                        <i class="ph-bold ph-clock-counter-clockwise text-sm"></i> LỊCH SỬ ĐIỂM CỘNG TRỪ
-                    </button>
-                </div>
-            `;
-        } else {
-            const positiveList = state.criteria.positive.map(c => `
-                <button onclick="executeQuickPoint(${s.id},${c.points}, '${escapeInlineJs(c.reason)}', '${escapeInlineJs(c.category)}', 'add')" class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-600 hover:bg-emerald-50 rounded-lg flex justify-between items-center gap-2 transition-colors">
-                    <span class="truncate">${c.reason}</span>
-                    <span class="flex-shrink-0 bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">+${c.points}</span>
-                </button>
-            `).join('');
-            const negativeList = state.criteria.negative.map(c => `
-                <button onclick="executeQuickPoint(${s.id},${c.points}, '${escapeInlineJs(c.reason)}', '${escapeInlineJs(c.category)}', 'subtract')" class="w-full text-left px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg flex justify-between items-center gap-2 transition-colors">
-                    <span class="truncate">${c.reason}</span>
-                    <span class="flex-shrink-0 bg-red-100 text-red-700 px-1.5 py-0.5 rounded">-${c.points}</span>
-                </button>
-            `).join('');
+      /* ================= TRANG HỌC SINH: CHIA TỔ + TÌM KIẾM ================= */
+      // Chuẩn hoá chuỗi để tìm kiếm không phân biệt dấu / hoa-thường
+      window.normalizeSearch = function(str) {
+          return String(str || '')
+              .toLowerCase()
+              .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+              .replace(/đ/g, 'd')
+              .replace(/\s+/g, ' ');
+      };
 
-            actionAreaHtml = `
-                <div class="flex items-center justify-center gap-4 w-full relative mb-6 px-4">
-                    <div class="relative w-full">
-                        <button onclick="toggleQuickMenu(event, 'quick-minus-${s.id}')" title="Trừ điểm" class="w-full h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 hover:text-red-600 transition-colors border border-red-100 font-black text-lg shadow-sm">
-                            <i class="ph-bold ph-minus"></i>
+      // Lọc trực tiếp trên DOM (không render lại toàn trang => không mất focus ô tìm kiếm)
+      window.applyStudentFilter = function() {
+          const q = window.normalizeSearch(state.studentSearch || '').trim();
+          const groupFilter = state.studentGroupFilter || 'all';
+          let visibleCount = 0;
+
+          document.querySelectorAll('[data-student-card]').forEach(card => {
+              const hay = card.getAttribute('data-search') || '';
+              const grp = card.getAttribute('data-group') || '';
+              const okText = !q || hay.indexOf(q) !== -1;
+              const okGroup = groupFilter === 'all' || grp === groupFilter;
+              const show = okText && okGroup;
+              card.style.display = show ? '' : 'none';
+              if (show) visibleCount++;
+          });
+
+          // Ẩn cả khối tổ nếu không còn học sinh nào khớp
+          document.querySelectorAll('[data-group-section]').forEach(sec => {
+              const cards = Array.from(sec.querySelectorAll('[data-student-card]'));
+              const shown = cards.filter(c => c.style.display !== 'none').length;
+              sec.style.display = shown === 0 ? 'none' : '';
+              const badge = sec.querySelector('[data-group-count]');
+              if (badge) {
+                  badge.textContent = (q || groupFilter !== 'all')
+                      ? `${shown}/${cards.length} HS`
+                      : `${cards.length} HS`;
+              }
+          });
+
+          const resultInfo = document.getElementById('hs-result-info');
+          if (resultInfo) {
+              const filtering = !!(q || groupFilter !== 'all');
+              resultInfo.textContent = filtering ? `Tìm thấy ${visibleCount} học sinh` : '';
+              resultInfo.classList.toggle('hidden', !filtering);
+          }
+          const emptyState = document.getElementById('hs-empty-state');
+          if (emptyState) emptyState.classList.toggle('hidden', visibleCount > 0);
+
+          const clearBtn = document.getElementById('hs-clear-search');
+          if (clearBtn) clearBtn.classList.toggle('hidden', !(state.studentSearch || ''));
+      };
+
+      window.searchStudents = function(value) {
+          state.studentSearch = value;
+          window.applyStudentFilter();
+      };
+
+      window.clearStudentSearch = function() {
+          state.studentSearch = '';
+          state.studentGroupFilter = 'all';
+          const input = document.getElementById('hs-search-input');
+          if (input) { input.value = ''; input.focus(); }
+          document.querySelectorAll('[data-group-chip]').forEach(chip => {
+              const isAll = chip.getAttribute('data-group-chip') === 'all';
+              chip.className = isAll
+                  ? 'hs-chip px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 bg-[#1e1b4b] text-white shadow-md'
+                  : 'hs-chip px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 bg-white text-slate-600 border border-slate-200 hover:bg-slate-50';
+          });
+          window.applyStudentFilter();
+      };
+
+      // Lọc theo tổ bằng chip
+      window.filterByGroup = function(groupName) {
+          state.studentGroupFilter = groupName;
+          document.querySelectorAll('[data-group-chip]').forEach(chip => {
+              const isActive = chip.getAttribute('data-group-chip') === groupName;
+              chip.className = isActive
+                  ? 'hs-chip px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 bg-[#1e1b4b] text-white shadow-md'
+                  : 'hs-chip px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 bg-white text-slate-600 border border-slate-200 hover:bg-slate-50';
+          });
+          window.applyStudentFilter();
+      };
+
+      // Thu gọn / mở rộng từng tổ
+      window.toggleGroupCollapse = function(key) {
+          if (!state.studentCollapsedGroups) state.studentCollapsedGroups = {};
+          state.studentCollapsedGroups[key] = !state.studentCollapsedGroups[key];
+          const body = document.getElementById('hs-group-body-' + key);
+          const icon = document.getElementById('hs-group-icon-' + key);
+          if (body) body.classList.toggle('hidden', !!state.studentCollapsedGroups[key]);
+          if (icon) icon.style.transform = state.studentCollapsedGroups[key] ? 'rotate(-90deg)' : 'rotate(0deg)';
+      };
+
+      function renderViewHocSinh() {
+        const isBGH = state.auth && state.auth.role === 'bgh';
+        if (!state.studentCollapsedGroups) state.studentCollapsedGroups = {};
+        if (typeof state.studentSearch !== 'string') state.studentSearch = '';
+        if (!state.studentGroupFilter) state.studentGroupFilter = 'all';
+
+        // --- Card của 1 học sinh (giữ nguyên đầy đủ chức năng cộng/trừ điểm) ---
+        const renderStudentCard = (s) => {
+            const group = (state.groups || []).find(g => g.name === s.group);
+            let borderColorClass = 'border-slate-200';
+            if (group && group.color) {
+                if (group.color.includes('red')) borderColorClass = 'border-red-400';
+                else if (group.color.includes('green')) borderColorClass = 'border-emerald-400';
+                else if (group.color.includes('yellow')) borderColorClass = 'border-yellow-400';
+                else if (group.color.includes('blue')) borderColorClass = 'border-blue-400';
+                else if (group.color.includes('purple')) borderColorClass = 'border-purple-400';
+            }
+
+            const currentPoints = s.points || 0;
+
+            let actionAreaHtml = '';
+            if (isBGH) {
+                actionAreaHtml = `
+                    <div class="w-full mt-2 mb-6 px-4">
+                        <button onclick="openStudentHistoryModal(${s.id})" class="w-full py-2.5 bg-indigo-50 text-indigo-600 font-bold rounded-xl text-xs hover:bg-indigo-100 transition-colors flex items-center justify-center gap-2 border border-indigo-100 shadow-sm">
+                            <i class="ph-bold ph-clock-counter-clockwise text-sm"></i> LỊCH SỬ ĐIỂM CỘNG TRỪ
                         </button>
-                        <div id="quick-minus-${s.id}" class="student-dropdown hidden absolute bottom-[calc(100%+8px)] left-0 w-60 bg-white border border-red-100 shadow-[0_10px_40px_rgba(239,68,68,0.15)] rounded-2xl z-50 p-2 max-h-56 overflow-y-auto custom-scrollbar animate-slide-up">
-                            <div class="text-[10px] text-red-400 font-bold uppercase tracking-widest px-2 pb-2 mb-2 border-b border-red-50 text-left">Chọn lý do trừ điểm:</div>
-                            ${negativeList || '<div class="text-xs text-slate-400 italic p-2 text-center">Chưa có mẫu</div>'}
+                    </div>
+                `;
+            } else {
+                const positiveList = state.criteria.positive.map(c => `
+                    <button onclick="executeQuickPoint(${s.id},${c.points}, '${escapeInlineJs(c.reason)}', '${escapeInlineJs(c.category)}', 'add')" class="w-full text-left px-3 py-2 text-xs font-bold text-emerald-600 hover:bg-emerald-50 rounded-lg flex justify-between items-center gap-2 transition-colors">
+                        <span class="truncate">${c.reason}</span>
+                        <span class="flex-shrink-0 bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">+${c.points}</span>
+                    </button>
+                `).join('');
+                const negativeList = state.criteria.negative.map(c => `
+                    <button onclick="executeQuickPoint(${s.id},${c.points}, '${escapeInlineJs(c.reason)}', '${escapeInlineJs(c.category)}', 'subtract')" class="w-full text-left px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded-lg flex justify-between items-center gap-2 transition-colors">
+                        <span class="truncate">${c.reason}</span>
+                        <span class="flex-shrink-0 bg-red-100 text-red-700 px-1.5 py-0.5 rounded">-${c.points}</span>
+                    </button>
+                `).join('');
+
+                actionAreaHtml = `
+                    <div class="flex items-center justify-center gap-4 w-full relative mb-6 px-4">
+                        <div class="relative w-full">
+                            <button onclick="toggleQuickMenu(event, 'quick-minus-${s.id}')" title="Trừ điểm" class="w-full h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 hover:text-red-600 transition-colors border border-red-100 font-black text-lg shadow-sm">
+                                <i class="ph-bold ph-minus"></i>
+                            </button>
+                            <div id="quick-minus-${s.id}" class="student-dropdown hidden absolute bottom-[calc(100%+8px)] left-0 w-60 bg-white border border-red-100 shadow-[0_10px_40px_rgba(239,68,68,0.15)] rounded-2xl z-50 p-2 max-h-56 overflow-y-auto custom-scrollbar animate-slide-up">
+                                <div class="text-[10px] text-red-400 font-bold uppercase tracking-widest px-2 pb-2 mb-2 border-b border-red-50 text-left">Chọn lý do trừ điểm:</div>
+                                ${negativeList || '<div class="text-xs text-slate-400 italic p-2 text-center">Chưa có mẫu</div>'}
+                            </div>
+                        </div>
+                        <div class="relative w-full">
+                            <button onclick="toggleQuickMenu(event, 'quick-plus-${s.id}')" title="Cộng điểm" class="w-full h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center hover:bg-emerald-100 hover:text-emerald-600 transition-colors border border-emerald-100 font-black text-lg shadow-sm">
+                                <i class="ph-bold ph-plus"></i>
+                            </button>
+                            <div id="quick-plus-${s.id}" class="student-dropdown hidden absolute bottom-[calc(100%+8px)] right-0 w-60 bg-white border border-emerald-100 shadow-[0_10px_40px_rgba(16,185,129,0.15)] rounded-2xl z-50 p-2 max-h-56 overflow-y-auto custom-scrollbar animate-slide-up">
+                                <div class="text-[10px] text-emerald-500 font-bold uppercase tracking-widest px-2 pb-2 mb-2 border-b border-emerald-50 text-left">Chọn lý do cộng điểm:</div>
+                                ${positiveList || '<div class="text-xs text-slate-400 italic p-2 text-center">Chưa có mẫu</div>'}
+                            </div>
                         </div>
                     </div>
-                    <div class="relative w-full">
-                        <button onclick="toggleQuickMenu(event, 'quick-plus-${s.id}')" title="Cộng điểm" class="w-full h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center hover:bg-emerald-100 hover:text-emerald-600 transition-colors border border-emerald-100 font-black text-lg shadow-sm">
-                            <i class="ph-bold ph-plus"></i>
-                        </button>
-                        <div id="quick-plus-${s.id}" class="student-dropdown hidden absolute bottom-[calc(100%+8px)] right-0 w-60 bg-white border border-emerald-100 shadow-[0_10px_40px_rgba(16,185,129,0.15)] rounded-2xl z-50 p-2 max-h-56 overflow-y-auto custom-scrollbar animate-slide-up">
-                            <div class="text-[10px] text-emerald-500 font-bold uppercase tracking-widest px-2 pb-2 mb-2 border-b border-emerald-50 text-left">Chọn lý do cộng điểm:</div>
-                            ${positiveList || '<div class="text-xs text-slate-400 italic p-2 text-center">Chưa có mẫu</div>'}
-                        </div>
+                `;
+            }
+
+            const searchIndex = window.normalizeSearch([s.name, s.code, s.role, s.group].join(' '));
+
+            return `
+            <div data-student-card data-group="${escapeHtmlAttr(s.group || '')}" data-search="${escapeHtmlAttr(searchIndex)}"
+                 class="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200 border-t-4 border-t-${borderColorClass.replace('border-', '')} flex flex-col items-center relative hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+
+                <div class="absolute top-4 right-4 z-20">
+                    <button onclick="toggleStudentMenu(event, ${s.id})" class="text-slate-300 hover:text-slate-600 p-1 rounded-full focus:outline-none transition-colors"><i class="ph-bold ph-dots-three-vertical text-xl"></i></button>
+                    <div id="student-menu-${s.id}" class="student-dropdown hidden absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-slate-100 overflow-hidden z-30 p-2 animate-fade-in">
+                        <button onclick="openStudentHistoryModal(${s.id})" class="w-full text-left px-3 py-2.5 text-sm text-emerald-600 hover:bg-slate-50 rounded-lg font-bold flex items-center gap-2.5"><i class="ph-bold ph-clock-counter-clockwise text-lg"></i> Lịch sử</button>
+                        ${state.auth.role === 'gvcn' ? `<button onclick="deleteStudent(${s.id})" class="w-full text-left px-3 py-2.5 text-sm text-red-600 hover:bg-slate-50 rounded-lg font-bold flex items-center gap-2.5"><i class="ph-fill ph-trash text-lg"></i> Xóa</button>` : ''}
                     </div>
                 </div>
+
+                ${getAvatarImg(s.avatarUrl, s.name, "w-24 h-24 mb-4 mt-2 ring-4 ring-slate-50 shadow-md")}
+                <div class="font-black text-slate-800 text-xl mb-2 truncate w-full text-center">${s.name}</div>
+                <div class="flex flex-wrap items-center justify-center gap-2 mb-2">
+                    <span class="text-[10px] font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-md uppercase border border-slate-200">${s.group || 'Chưa nhóm'}</span>
+                    <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-md border border-blue-100">${s.role || 'Thành viên'}</span>
+                </div>
+                ${s.code ? `<div class="text-[10px] font-bold text-slate-400 mb-2 tracking-wider">MÃ: ${s.code}</div>` : ''}
+                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 mt-2">TỔNG ĐIỂM</div>
+                <div class="text-4xl font-black text-[#1e1b4b] mb-6">${currentPoints}</div>${actionAreaHtml}
+
+                <button ${isBGH ? '' : `onclick="openEditStudentModal(${s.id})"`} class="w-full py-3 bg-slate-50 text-slate-600 font-bold rounded-xl text-xs flex items-center justify-center gap-2 border border-slate-200 mt-auto ${isBGH ? 'cursor-not-allowed opacity-70' : 'hover:bg-slate-100 transition-colors'}">
+                    <i class="ph-bold ${isBGH ? 'ph-eye' : 'ph-identification-card'} text-sm"></i> ${isBGH ? 'CHỈ XEM HỒ SƠ' : 'XEM HỒ SƠ'}
+                </button>
+            </div>
             `;
-        }
+        };
+
+        // --- Gom học sinh theo tổ (theo danh sách Tổ trong Cài đặt) ---
+        const allGroups = state.groups || [];
+        const buckets = allGroups.map(g => ({
+            key: 'grp_' + String(g.id).replace(/[^a-zA-Z0-9_-]/g, ''),
+            name: g.name,
+            color: g.color || 'text-slate-500',
+            avatarUrl: g.avatarUrl || '',
+            students: []
+        }));
+
+        const otherBucket = { key: 'khac', name: 'Chưa xếp tổ', color: 'text-slate-400', avatarUrl: '', students: [] };
+
+        state.students.forEach(s => {
+            const bucket = buckets.find(b => b.name === s.group);
+            (bucket || otherBucket).students.push(s);
+        });
+        if (otherBucket.students.length > 0) buckets.push(otherBucket);
+
+        buckets.forEach(b => b.students.sort((a, b2) => (b2.points || 0) - (a.points || 0)));
+
+        const totalFiltered = buckets.reduce((n, b) => n + b.students.length, 0);
+
+        const chipsHtml = `
+            <button data-group-chip="all" onclick="filterByGroup('all')" class="hs-chip px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${state.studentGroupFilter === 'all' ? 'bg-[#1e1b4b] text-white shadow-md' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
+                <i class="ph-fill ph-squares-four"></i> Tất cả <span class="opacity-70">(${state.students.length})</span>
+            </button>
+            ${allGroups.map(g => {
+                const count = state.students.filter(s => s.group === g.name).length;
+                const active = state.studentGroupFilter === g.name;
+                return `<button data-group-chip="${escapeHtmlAttr(g.name)}" onclick="filterByGroup('${escapeInlineJs(g.name)}')" class="hs-chip px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${active ? 'bg-[#1e1b4b] text-white shadow-md' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
+                    <i class="ph-fill ph-users-three ${active ? '' : g.color || 'text-slate-400'}"></i> ${g.name} <span class="opacity-70">(${count})</span>
+                </button>`;
+            }).join('')}
+        `;
+
+        const sectionsHtml = buckets.map(b => {
+            const isCollapsed = !!state.studentCollapsedGroups[b.key];
+            const totalPoints = b.students.reduce((sum, s) => sum + (s.points || 0), 0);
+            return `
+            <section data-group-section="${escapeHtmlAttr(b.key)}" class="animate-fade-in">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-200">
+                    <button onclick="toggleGroupCollapse('${b.key}')" class="flex items-center gap-3 group text-left">
+                        <span id="hs-group-icon-${b.key}" class="text-slate-400 transition-transform duration-300" style="display:inline-block; transform: rotate(${isCollapsed ? '-90deg' : '0deg'});">
+                            <i class="ph-bold ph-caret-down text-base"></i>
+                        </span>
+                        ${b.avatarUrl
+                            ? `<img src="${b.avatarUrl}" class="w-11 h-11 rounded-2xl object-cover shadow-sm ring-2 ring-white">`
+                            : `<div class="w-11 h-11 rounded-2xl bg-white flex items-center justify-center shadow-sm ring-2 ring-slate-100 border border-slate-100"><i class="ph-fill ph-users-three text-xl ${b.color}"></i></div>`}
+                        <div>
+                            <h3 class="font-black text-slate-800 text-lg tracking-tight leading-none group-hover:text-[#1e1b4b] transition-colors">${b.name}</h3>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1 flex items-center gap-2">
+                                <span data-group-count>${b.students.length} HS</span>
+                                <span class="text-slate-300">•</span>
+                                <span>Tổng ${totalPoints} điểm</span>
+                            </div>
+                        </div>
+                    </button>
+                    <div class="flex items-center gap-2">
+                        <button onclick="filterByGroup('${escapeInlineJs(b.name)}')" class="px-3 py-2 rounded-xl text-[11px] font-bold bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100 transition-colors flex items-center gap-1.5">
+                            <i class="ph-bold ph-funnel"></i> Chỉ xem tổ này
+                        </button>
+                        <button onclick="toggleGroupCollapse('${b.key}')" class="px-3 py-2 rounded-xl text-[11px] font-bold bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 transition-colors">
+                            ${isCollapsed ? 'Mở rộng' : 'Thu gọn'}
+                        </button>
+                    </div>
+                </div>
+                <div id="hs-group-body-${b.key}" class="${isCollapsed ? 'hidden' : ''}">
+                    ${b.students.length === 0
+                        ? `<div class="text-xs text-slate-400 font-medium italic text-center py-8 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">Tổ này chưa có thành viên nào</div>`
+                        : `<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 xl:gap-8">${b.students.map(renderStudentCard).join('')}</div>`}
+                </div>
+            </section>
+            `;
+        }).join('');
 
         return `
-        <div class="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200 border-t-4 border-t-${borderColorClass.replace('border-', '')} flex flex-col items-center relative hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-            
-            <div class="absolute top-4 right-4 z-20">
-                <button onclick="toggleStudentMenu(event, ${s.id})" class="text-slate-300 hover:text-slate-600 p-1 rounded-full focus:outline-none transition-colors"><i class="ph-bold ph-dots-three-vertical text-xl"></i></button>
-                <div id="student-menu-${s.id}" class="student-dropdown hidden absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-slate-100 overflow-hidden z-30 p-2 animate-fade-in">
-                    <button onclick="openStudentHistoryModal(${s.id})" class="w-full text-left px-3 py-2.5 text-sm text-emerald-600 hover:bg-slate-50 rounded-lg font-bold flex items-center gap-2.5"><i class="ph-bold ph-clock-counter-clockwise text-lg"></i> Lịch sử</button>
-                    ${state.auth.role === 'gvcn' ? `<button onclick="deleteStudent(${s.id})" class="w-full text-left px-3 py-2.5 text-sm text-red-600 hover:bg-slate-50 rounded-lg font-bold flex items-center gap-2.5"><i class="ph-fill ph-trash text-lg"></i> Xóa</button>` : ''}
+            <div class="max-w-7xl mx-auto animate-fade-in space-y-6 pb-12" onclick="closeAllStudentMenus()">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center py-2 border-b border-slate-200 pb-6 gap-4">
+                  <div>
+                        <h2 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+                            Quản lí Học sinh
+                            <span class="bg-blue-100 text-blue-700 text-[13px] px-3 py-1 rounded-full border border-blue-200 shadow-inner font-bold tracking-wide">Sĩ số: ${state.students.length}</span>
+                        </h2>
+                        <p class="text-xs font-bold text-slate-400 mt-1 flex items-center gap-1.5"><i class="ph-fill ph-users-three"></i> ${buckets.length} tổ • ${state.students.length} học sinh</p>
+                    </div>
+                  <div class="flex gap-3 w-full sm:w-auto">
+                        ${!isBGH ? `
+                        <button onclick="openEditStudentModal(null)" class="flex-1 sm:flex-none px-5 py-3 bg-[#0f172a] text-white font-bold rounded-xl text-sm shadow-md hover:bg-black transition-colors flex items-center justify-center gap-2"><i class="ph-bold ph-user-plus text-lg"></i> Thêm HS</button>
+                        <button onclick="downloadTemplate()" class="flex-1 sm:flex-none px-5 py-3 bg-white text-slate-600 border border-slate-200 font-bold rounded-xl text-sm shadow-sm hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"><i class="ph-fill ph-download-simple text-green-600 text-lg"></i> File mẫu</button>
+                        <button onclick="openImportModal()" class="flex-1 sm:flex-none px-5 py-3 bg-blue-50 text-blue-700 border border-blue-100 font-bold rounded-xl text-sm shadow-sm hover:bg-blue-100 transition-colors flex items-center justify-center gap-2"><i class="ph-bold ph-upload-simple text-lg"></i> Nhập DS</button>
+                        ` : ''}
+                    </div>
+                </div>
+
+                <!-- THANH TÌM KIẾM + LỌC TỔ -->
+                <div class="sticky top-0 z-30 -mx-4 md:mx-0 px-4 md:px-0 py-3 bg-[#f8fafc]/95 backdrop-blur-sm">
+                    <div class="bg-white rounded-[1.6rem] border border-slate-200 shadow-sm p-4 md:p-5 space-y-3">
+                        <div class="flex flex-col md:flex-row md:items-center gap-3">
+                            <div class="relative w-full">
+                                <i class="ph-bold ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+                                <input id="hs-search-input" type="text" value="${escapeHtmlAttr(state.studentSearch || '')}"
+                                       oninput="searchStudents(this.value)"
+                                       placeholder="Tìm theo tên, mã tra cứu, chức vụ hoặc tổ..."
+                                       class="w-full pl-12 pr-12 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 placeholder:font-medium placeholder:text-slate-400 outline-none focus:bg-white focus:border-[#1e1b4b] focus:ring-4 focus:ring-indigo-50 transition-all">
+                                <button id="hs-clear-search" onclick="clearStudentSearch()" class="hidden absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-200 text-slate-600 hover:bg-slate-300 flex items-center justify-center transition-colors"><i class="ph-bold ph-x text-sm"></i></button>
+                            </div>
+                            <div id="hs-result-info" class="text-[11px] font-bold text-slate-400 whitespace-nowrap md:text-right ${(state.studentSearch || state.studentGroupFilter !== 'all') ? '' : 'hidden'}"></div>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">${chipsHtml}</div>
+                    </div>
+                </div>
+
+                <div id="hs-groups-root" class="space-y-10">
+                    ${sectionsHtml || '<div class="text-center py-16 text-slate-400 font-bold italic">Chưa có học sinh nào trong lớp</div>'}
+                </div>
+
+                <div id="hs-empty-state" class="hidden text-center py-16">
+                    <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center"><i class="ph-bold ph-magnifying-glass text-3xl text-slate-300"></i></div>
+                    <div class="font-black text-slate-500 text-lg mb-1">Không tìm thấy học sinh phù hợp</div>
+                    <div class="text-sm font-medium text-slate-400 mb-4">Thử từ khoá khác hoặc bỏ lọc theo tổ.</div>
+                    <button onclick="clearStudentSearch()" class="px-5 py-2.5 bg-[#1e1b4b] text-white font-bold rounded-xl text-xs hover:bg-secondary transition-colors">Xoá bộ lọc</button>
                 </div>
             </div>
-            
-            ${getAvatarImg(s.avatarUrl, s.name, "w-24 h-24 mb-4 mt-2 ring-4 ring-slate-50 shadow-md")}
-            <div class="font-black text-slate-800 text-xl mb-2 truncate w-full text-center">${s.name}</div>
-            <div class="flex items-center justify-center gap-2 mb-4">
-                <span class="text-[10px] font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-md uppercase border border-slate-200">${s.group || 'Chưa nhóm'}</span>
-                <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-md border border-blue-100">${s.role || 'Thành viên'}</span>
-            </div>
-            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 mt-2">TỔNG ĐIỂM</div>
-            <div class="text-4xl font-black text-[#1e1b4b] mb-6">${currentPoints}</div>${actionAreaHtml}
-            
-            <button ${isBGH ? '' : `onclick="openEditStudentModal(${s.id})"`} class="w-full py-3 bg-slate-50 text-slate-600 font-bold rounded-xl text-xs flex items-center justify-center gap-2 border border-slate-200 mt-auto ${isBGH ? 'cursor-not-allowed opacity-70' : 'hover:bg-slate-100 transition-colors'}">
-                <i class="ph-bold ${isBGH ? 'ph-eye' : 'ph-identification-card'} text-sm"></i> ${isBGH ? 'CHỈ XEM HỒ SƠ' : 'XEM HỒ SƠ'}
-            </button>
-        </div>
         `;
-    }).join('');
-    
-    return `
-        <div class="max-w-7xl mx-auto animate-fade-in space-y-8 pb-12" onclick="closeAllStudentMenus()">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center py-2 border-b border-slate-200 pb-6 gap-4">
-              <div>
-                    <h2 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
-                        Quản lí Học sinh 
-                        <span class="bg-blue-100 text-blue-700 text-[13px] px-3 py-1 rounded-full border border-blue-200 shadow-inner font-bold tracking-wide">Sĩ số: ${state.students.length}</span>
-                    </h2>
-                </div>
-              <div class="flex gap-3 w-full sm:w-auto">
-                    ${!isBGH ? `
-                    <button onclick="openEditStudentModal(null)" class="flex-1 sm:flex-none px-5 py-3 bg-[#0f172a] text-white font-bold rounded-xl text-sm shadow-md hover:bg-black transition-colors flex items-center justify-center gap-2"><i class="ph-bold ph-user-plus text-lg"></i> Thêm HS</button>
-                    <button onclick="downloadTemplate()" class="flex-1 sm:flex-none px-5 py-3 bg-white text-slate-600 border border-slate-200 font-bold rounded-xl text-sm shadow-sm hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"><i class="ph-fill ph-download-simple text-green-600 text-lg"></i> File mẫu</button>
-                    <button onclick="openImportModal()" class="flex-1 sm:flex-none px-5 py-3 bg-blue-50 text-blue-700 border border-blue-100 font-bold rounded-xl text-sm shadow-sm hover:bg-blue-100 transition-colors flex items-center justify-center gap-2"><i class="ph-bold ph-upload-simple text-lg"></i> Nhập DS</button>
-                    ` : ''}
-                </div>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 xl:gap-8">
-                ${studentsHtml}
-            </div>
-        </div>
-    `;
-}
+      }
         function renderViewTichDiem() {
             const pf = state.pointsForm;
             const isAdd = pf.actionType === 'add';
@@ -7311,6 +7526,252 @@ window.parseExcelToDailySchedule = function(rows) {
 // ==========================================
         // --- CÁC HÀM XỬ LÝ PHÂN QUYỀN VÀ ĐĂNG NHẬP ---
         // ==========================================
+      /* ================= BẢNG PHONG THẦN (trang đăng nhập) ================= */
+      window.openHallOfFame = function(tab) {
+          state.hallOfFameTab = tab || state.hallOfFameTab || 'ca-nhan';
+          if (!window._hofEscBound) {
+              window._hofEscBound = true;
+              document.addEventListener('keydown', function(e) {
+                  if (e.key === 'Escape') window.closeHallOfFame();
+              });
+          }
+          let modal = document.getElementById('hall-of-fame-modal');
+          if (!modal) {
+              modal = document.createElement('div');
+              modal.id = 'hall-of-fame-modal';
+              document.body.appendChild(modal);
+          }
+          renderHallOfFame();
+      };
+
+      window.closeHallOfFame = function() {
+          const modal = document.getElementById('hall-of-fame-modal');
+          if (modal) modal.remove();
+      };
+
+      window.switchHallOfFameTab = function(tab) {
+          state.hallOfFameTab = tab;
+          state.hallOfFameGroup = null;
+          renderHallOfFame();
+      };
+
+      // Bấm vào 1 tổ => xem bảng xếp hạng thành viên trong tổ đó
+      window.openGroupDetail = function(groupName) {
+          state.hallOfFameGroup = groupName || null;
+          renderHallOfFame();
+      };
+
+      window.renderHallOfFame = function() {
+          const modal = document.getElementById('hall-of-fame-modal');
+          if (!modal) return;
+          const tab = state.hallOfFameTab === 'theo-to' ? 'theo-to' : 'ca-nhan';
+          const students = (state.students || []).slice();
+          const groups = (state.groups || []).slice();
+
+          const medal = rank => rank === 1 ? '<i class="ph-fill ph-crown"></i>' : rank === 2 ? '<i class="ph-fill ph-medal"></i>' : rank === 3 ? '<i class="ph-fill ph-medal"></i>' : `#${rank}`;
+          const rankBadgeClass = rank => {
+              if (rank === 1) return 'bg-gradient-to-br from-yellow-300 to-amber-500 text-amber-900 shadow-[0_6px_18px_rgba(245,158,11,0.5)]';
+              if (rank === 2) return 'bg-gradient-to-br from-slate-200 to-slate-400 text-slate-800 shadow-[0_6px_18px_rgba(148,163,184,0.45)]';
+              if (rank === 3) return 'bg-gradient-to-br from-orange-300 to-orange-500 text-white shadow-[0_6px_18px_rgba(249,115,22,0.45)]';
+              return 'bg-white/10 text-slate-200 border border-white/10';
+          };
+
+          /* ---------- BẢNG CÁ NHÂN ---------- */
+          const sortedStudents = students.sort((a, b) => (b.points || 0) - (a.points || 0) || String(a.name).localeCompare(String(b.name)));
+          const top3 = sortedStudents.slice(0, 3);
+          const rest = sortedStudents.slice(3);
+
+          const podiumCard = (s, rank) => {
+              const barH = rank === 1 ? 'h-28 md:h-36' : rank === 2 ? 'h-20 md:h-24' : 'h-14 md:h-20';
+              const ring = rank === 1 ? 'ring-4 ring-yellow-300' : 'ring-4 ring-white/20';
+              const badgeCls = rank === 1 ? 'bg-gradient-to-br from-yellow-300 to-amber-500 text-amber-900' : rank === 2 ? 'bg-gradient-to-br from-slate-200 to-slate-400 text-slate-800' : 'bg-gradient-to-br from-orange-300 to-orange-500 text-white';
+              return `
+                <div class="flex flex-col items-center justify-end">
+                    <div class="relative mb-1.5">
+                        ${getAvatarImg(s.avatarUrl, s.name, `w-14 h-14 md:w-20 md:h-20 ${ring} shadow-xl`)}
+                        <div class="absolute -bottom-1 -right-1 w-6 h-6 md:w-7 md:h-7 rounded-full ${badgeCls} flex items-center justify-center text-[10px] md:text-xs font-black shadow-lg ring-2 ring-[#141235]">${rank}</div>
+                    </div>
+                    <div class="text-center mb-1.5 px-0.5 w-full">
+                        <div class="font-black text-white text-[11px] md:text-sm truncate leading-tight">${s.name}</div>
+                        <div class="text-[9px] font-bold text-amber-200/70 uppercase tracking-wider truncate">${s.group || 'Chưa nhóm'}</div>
+                    </div>
+                    <div class="${barH} w-full rounded-t-xl md:rounded-t-2xl ${rank === 1 ? 'bg-gradient-to-t from-amber-500/80 via-amber-400/40 to-amber-200/10 border-amber-300/60' : 'bg-gradient-to-t from-white/20 via-white/10 to-white/[0.03] border-white/20'} border-t border-x flex flex-col items-center justify-start pt-2">
+                        <div class="text-lg md:text-2xl font-black text-white drop-shadow leading-none">${s.points || 0}</div>
+                        <div class="text-[8px] font-bold uppercase tracking-widest text-white/50 mt-1">điểm</div>
+                    </div>
+                </div>`;
+          };
+
+          const podiumOrder = [top3[1], top3[0], top3[2]];
+          const podiumRankOrder = [2, 1, 3];
+          const podiumHtml = top3.length === 0 ? '' : `
+                <div class="grid grid-cols-3 gap-2 md:gap-4 items-end mb-6">
+                    ${podiumOrder.map((s, i) => s ? podiumCard(s, podiumRankOrder[i]) : '<div></div>').join('')}
+                </div>`;
+
+          const restRows = rest.map((s, i) => {
+              const rank = i + 4;
+              return `
+                <div class="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors">
+                    <div class="w-8 h-8 shrink-0 rounded-xl ${rankBadgeClass(rank)} flex items-center justify-center text-[11px] font-black">${rank}</div>
+                    ${getAvatarImg(s.avatarUrl, s.name, 'w-9 h-9 shrink-0 ring-2 ring-white/20')}
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-bold text-white truncate">${s.name}</div>
+                        <div class="text-[10px] font-bold text-white/40 uppercase tracking-wider truncate">${s.group || 'Chưa nhóm'}${s.role && s.role !== 'Thành viên' ? ' • ' + s.role : ''}</div>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <div class="text-base font-black text-amber-300">${s.points || 0}</div>
+                        <div class="text-[8px] font-bold uppercase tracking-widest text-white/30">điểm</div>
+                    </div>
+                </div>`;
+          }).join('');
+
+          const individualHtml = `
+                ${podiumHtml}
+                ${top3.length === 0 ? '<div class="text-center text-white/50 font-bold italic py-16">Chưa có dữ liệu học sinh</div>' : ''}
+                ${rest.length ? `<div class="space-y-2 max-h-[42vh] overflow-y-auto custom-scrollbar pr-1">${restRows}</div>` : ''}
+          `;
+
+          /* ---------- BẢNG THEO TỔ ---------- */
+          const groupsWithStats = groups.map(g => {
+              const members = students.filter(s => s.group === g.name);
+              const totalPoints = members.reduce((sum, s) => sum + (s.points || 0), 0);
+              const avg = members.length ? Math.round(totalPoints / members.length) : 0;
+              const leader = members.slice().sort((a, b) => (b.points || 0) - (a.points || 0))[0];
+              return { ...g, members, totalPoints, avg, leader };
+          }).sort((a, b) => b.totalPoints - a.totalPoints || a.name.localeCompare(b.name));
+
+          const maxGroupPoints = Math.max(...groupsWithStats.map(g => g.totalPoints), 1);
+
+          const groupRows = groupsWithStats.map((g, i) => {
+              const rank = i + 1;
+              const pct = Math.max(0, Math.round((g.totalPoints / maxGroupPoints) * 100));
+              return `
+                <div onclick="openGroupDetail('${escapeInlineJs(g.name)}')" role="button" class="cursor-pointer rounded-2xl bg-white/5 border ${rank === 1 ? 'border-amber-300/50 bg-amber-400/10' : 'border-white/10'} p-3 md:p-4 hover:bg-white/10 hover:border-white/30 transition-all">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 shrink-0 rounded-xl ${rankBadgeClass(rank)} flex items-center justify-center text-sm font-black">${rank <= 3 ? medal(rank) : rank}</div>
+                        ${g.avatarUrl
+                            ? `<img src="${g.avatarUrl}" class="w-10 h-10 rounded-xl object-cover ring-2 ring-white/20 shrink-0">`
+                            : `<div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center ring-2 ring-white/10 shrink-0"><i class="ph-fill ph-users-three text-lg ${g.color || 'text-amber-300'}"></i></div>`}
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-baseline gap-2">
+                                <div class="font-black text-white text-sm md:text-base truncate">${g.name}</div>
+                                <div class="text-[10px] font-bold text-white/40 whitespace-nowrap">${g.members.length} HS</div>
+                            </div>
+                            <div class="text-[10px] font-bold text-white/40 truncate">Dẫn đầu: ${g.leader ? g.leader.name : '—'}${g.leader ? ` (${g.leader.points || 0})` : ''}</div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <div class="text-xl md:text-2xl font-black text-amber-300 leading-none">${g.totalPoints}</div>
+                            <div class="text-[9px] font-bold uppercase tracking-widest text-white/30 mt-0.5">TB ${g.avg}/HS</div>
+                        </div>
+                        <i class="ph-bold ph-caret-right text-white/30 ml-1 shrink-0 text-sm"></i>
+                    </div>
+                    <div class="mt-2.5 h-2 w-full rounded-full bg-white/10 overflow-hidden">
+                        <div class="h-full rounded-full bg-gradient-to-r ${rank === 1 ? 'from-amber-300 to-orange-500' : 'from-indigo-400 to-blue-400'}" style="width:${pct}%"></div>
+                    </div>
+                </div>`;
+          }).join('');
+
+          /* ---------- CHI TIẾT 1 TỔ: XẾP HẠNG THÀNH VIÊN ---------- */
+          const currentGroup = (tab === 'theo-to' && state.hallOfFameGroup)
+              ? groupsWithStats.find(g => g.name === state.hallOfFameGroup)
+              : null;
+
+          let groupDetailHtml = '';
+          if (currentGroup) {
+              const gRank = groupsWithStats.findIndex(g => g.name === currentGroup.name) + 1;
+              const members = currentGroup.members.slice().sort((a, b) => (b.points || 0) - (a.points || 0) || String(a.name).localeCompare(String(b.name)));
+
+              const memberRows = members.map((m, idx) => {
+                  const rank = idx + 1;
+                  const isTop = rank <= 3;
+                  return `
+                    <div class="flex items-center gap-3 px-3 py-3 rounded-2xl ${rank === 1 ? 'bg-amber-400/15 border border-amber-300/40' : 'bg-white/5 border border-white/10'} hover:bg-white/10 transition-colors">
+                        <div class="w-9 h-9 shrink-0 rounded-xl ${rankBadgeClass(rank)} flex items-center justify-center text-[11px] font-black">${rank}</div>
+                        ${getAvatarImg(m.avatarUrl, m.name, `w-10 h-10 shrink-0 ${isTop ? 'ring-2 ring-amber-300/70' : 'ring-2 ring-white/20'}`)}
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-bold text-white truncate">${m.name}</div>
+                            <div class="text-[10px] font-bold text-white/40 uppercase tracking-wider truncate">${m.role || 'Thành viên'}${isTop ? ' • TOP ' + rank : ''}</div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <div class="text-lg font-black ${isTop ? 'text-amber-300' : 'text-white'} leading-none">${m.points || 0}</div>
+                            <div class="text-[8px] font-bold uppercase tracking-widest text-white/30 mt-1">điểm</div>
+                        </div>
+                    </div>`;
+              }).join('');
+
+              groupDetailHtml = `
+                <div class="animate-fade-in">
+                    <div class="flex items-center gap-3 mb-4">
+                        <button onclick="openGroupDetail(null)" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors shrink-0"><i class="ph-bold ph-arrow-left"></i></button>
+                        ${currentGroup.avatarUrl
+                            ? `<img src="${currentGroup.avatarUrl}" class="w-12 h-12 rounded-2xl object-cover ring-2 ring-white/20 shrink-0">`
+                            : `<div class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center ring-2 ring-white/10 shrink-0"><i class="ph-fill ph-users-three text-xl ${currentGroup.color || 'text-amber-300'}"></i></div>`}
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-black text-white text-lg md:text-xl truncate">${currentGroup.name}</h3>
+                                <span class="text-[9px] font-black px-2 py-0.5 rounded-lg bg-gradient-to-br ${gRank === 1 ? 'from-yellow-300 to-amber-500 text-amber-900' : 'from-white/20 to-white/10 text-white/70'}">HẠNG ${gRank}</span>
+                            </div>
+                            <div class="text-[10px] font-bold text-white/40 uppercase tracking-wider">${currentGroup.members.length} thành viên • ${currentGroup.totalPoints} điểm • TB ${currentGroup.avg}/HS</div>
+                        </div>
+                    </div>
+                    <div class="space-y-2 max-h-[52vh] overflow-y-auto custom-scrollbar pr-1">
+                        ${memberRows || '<div class="text-center text-white/50 font-bold italic py-16">Tổ này chưa có thành viên</div>'}
+                    </div>
+                </div>`;
+          }
+
+          const groupHtml = groupsWithStats.length === 0
+              ? '<div class="text-center text-white/50 font-bold italic py-16">Chưa có tổ nào trong danh sách</div>'
+              : `<div class="space-y-2.5 max-h-[58vh] overflow-y-auto custom-scrollbar pr-1">${groupRows}</div>`;
+
+          const updatedLabel = new Date().toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+          const totalStudents = students.length;
+
+          modal.innerHTML = `
+            <div class="fixed inset-0 z-[120] flex items-center justify-center p-3 md:p-6 bg-[#060a1a]/80 backdrop-blur-md animate-fade-in" onclick="if(event.target === this) closeHallOfFame()">
+                <div class="w-full max-w-3xl max-h-[94vh] overflow-hidden rounded-[2rem] shadow-[0_30px_80px_rgba(0,0,0,0.6)] border border-white/10 flex flex-col relative"
+                     style="background: radial-gradient(120% 90% at 50% 0%, #2a2560 0%, #141235 45%, #0b0a22 100%);">
+
+                    <!-- ánh sáng nền -->
+                    <div class="absolute -top-24 left-1/2 -translate-x-1/2 w-[420px] h-[420px] rounded-full bg-amber-400/20 blur-3xl pointer-events-none"></div>
+
+                    <!-- HEADER -->
+                    <div class="relative z-10 pt-6 pb-4 px-5 md:px-8 text-center shrink-0">
+                        <button onclick="closeHallOfFame()" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center transition-colors">
+                            <i class="ph-bold ph-x"></i>
+                        </button>
+                        <div class="w-12 h-12 md:w-14 md:h-14 mx-auto mb-2 rounded-2xl bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-500 flex items-center justify-center shadow-[0_10px_30px_rgba(245,158,11,0.45)] ring-2 ring-yellow-200/40">
+                            <i class="ph-fill ph-trophy text-2xl md:text-3xl text-amber-950"></i>
+                        </div>
+                        <h1 class="inline-block px-2 text-3xl md:text-5xl font-black tracking-tight uppercase bg-gradient-to-b from-yellow-200 via-amber-300 to-orange-500 bg-clip-text text-transparent" style="line-height:1.5; padding-top:.28em; padding-bottom:.18em;-webkit-box-decoration-break:clone;">Bảng Phong Thần</h1>
+                        <p class="text-[10px] md:text-xs font-bold uppercase tracking-[0.28em] text-amber-200/60 mt-2">Vinh danh những ngôi sao của ${(state.admin && state.admin.className) || 'lớp học'}</p>
+
+                        <div class="flex items-center justify-center gap-3 mt-4">
+                            <button onclick="switchHallOfFameTab('ca-nhan')" class="px-4 md:px-6 py-2.5 rounded-2xl text-xs md:text-sm font-black transition-all flex items-center gap-2 ${tab === 'ca-nhan' ? 'bg-white text-[#1e1b4b] shadow-lg' : 'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'}">
+                                <i class="ph-fill ph-user"></i> Theo Cá Nhân
+                            </button>
+                            <button onclick="switchHallOfFameTab('theo-to')" class="px-4 md:px-6 py-2.5 rounded-2xl text-xs md:text-sm font-black transition-all flex items-center gap-2 ${tab === 'theo-to' ? 'bg-white text-[#1e1b4b] shadow-lg' : 'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'}">
+                                <i class="ph-fill ph-users-three"></i> Theo Tổ
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- NỘI DUNG -->
+                    <div class="relative z-10 px-4 md:px-8 pb-4 overflow-hidden flex-1">
+                        ${tab === 'ca-nhan' ? individualHtml : (currentGroup ? groupDetailHtml : groupHtml)}
+                    </div>
+
+                    <!-- FOOTER -->
+                    <div class="relative z-10 px-5 md:px-8 py-3 border-t border-white/10 flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-white/35 shrink-0">
+                        <span><i class="ph-fill ph-users"></i> ${totalStudents} học sinh • ${groups.length} tổ</span>
+                        <span>Cập nhật ${updatedLabel}</span>
+                    </div>
+                </div>
+            </div>
+          `;
+      };
+
      function renderLoginScreen() {
             const roleLabels = {
                 'gvcn': 'Giáo viên chủ nhiệm',
@@ -7394,6 +7855,13 @@ window.parseExcelToDailySchedule = function(rows) {
 
                         <!-- CỘT PHẢI (Form Đăng nhập) -->
                         <div class="w-full md:w-1/2 p-8 md:p-14 flex flex-col justify-center bg-white relative z-10">
+                            <!-- NÚT CÚP: BẢNG PHONG THẦN -->
+                            <button onclick="openHallOfFame()" title="Bảng Phong Thần" class="absolute top-5 right-5 w-11 h-11 rounded-2xl bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-500 text-white shadow-[0_8px_20px_rgba(245,158,11,0.45)] hover:scale-110 active:scale-95 transition-transform flex items-center justify-center z-20 ring-2 ring-white/60 md:hidden">
+                                <i class="ph-fill ph-trophy text-xl"></i>
+                            </button>
+                            <button onclick="openHallOfFame()" title="Bảng Phong Thần" class="hidden md:flex absolute top-5 right-5 items-center gap-2 pl-3 pr-4 h-11 rounded-2xl bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-500 text-amber-950 shadow-[0_8px_20px_rgba(245,158,11,0.45)] hover:scale-105 active:scale-95 transition-transform z-20 ring-2 ring-white/60 font-black text-xs">
+                                <i class="ph-fill ph-trophy text-lg"></i> BẢNG PHONG THẦN
+                            </button>
                             <div class="text-center mb-8">
                                 <div class="w-14 h-14 bg-[#1e1b4b] text-white rounded-2xl mx-auto flex items-center justify-center mb-5 shadow-lg"><i class="ph-fill ph-graduation-cap text-3xl"></i></div>
                                 <h2 class="text-2xl font-black text-slate-800">Đăng Nhập Quản Trị</h2>
@@ -7541,7 +8009,8 @@ window.parseExcelToDailySchedule = function(rows) {
         // Những mục của RIÊNG từng người, KHÔNG chia sẻ (đăng nhập, tab đang mở, form đang nhập...)
         const LOCAL_ONLY_KEYS = ['auth', 'loginRoleSelect', 'currentTab', 'settingsTab', 'attendanceTab',
             'evalSubTab', 'evalSelectedMonth', 'evalSelectedSemester', 'pointsForm',
-            'selectedStudentForRewards', 'editingStudentId', 'editingGroupId'];
+            'selectedStudentForRewards', 'editingStudentId', 'editingGroupId',
+            'studentSearch', 'studentGroupFilter', 'studentCollapsedGroups'];
 
         function getSharedState() {
             const copy = JSON.parse(JSON.stringify(state));
@@ -8369,5 +8838,5 @@ window.deleteHistoryRecord = function(studentId, recordId) {
             }
         };
         checkRoleFromUrl();</script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a56aecf15d4d02da',t:'MTc5NDAzOTY5OA=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a56aecf15d4d02da',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
