@@ -225,9 +225,20 @@
         function escapeHtmlAttr(str) { return str ? String(str).replace(/"/g, '&quot;') : ''; }
         
         function generateUniqueCode() {
-            let code, attempts = 0;
+            // Mỗi học sinh có mã riêng, cấp tuần tự: 11001, 11002, 11003, ... (số kế tiếp chưa ai dùng)
             const currentStudents = state.students || [];
-            do { code = Math.floor(10000 + Math.random() * 90000).toString(); attempts++; } while (currentStudents.some(s => s.code === code) && attempts < 100);
+            const used = new Set(currentStudents.map(s => String(s.code || '')));
+            let max = 11000;
+            currentStudents.forEach(s => {
+                const c = String(s.code || '');
+                if (/^11\d{3}$/.test(c)) max = Math.max(max, Number(c));
+            });
+            let next = max + 1;
+            while (used.has(String(next)) && next <= 11999) next++;
+            if (next <= 11999) return String(next);
+            // Hết dãy 11xxx thì dùng số ngẫu nhiên 5 chữ số
+            let code, attempts = 0;
+            do { code = Math.floor(10000 + Math.random() * 90000).toString(); attempts++; } while (used.has(code) && attempts < 100);
             return code;
         }
 
@@ -4648,7 +4659,7 @@ function renderViewCaiDat() {
       function openEditStudentModal(id) {
             state.editingStudentId = id;
             // Khởi tạo thêm các trường mới: ethnicity, isUnionMember, prevAcademic, prevConduct
-            const s = id ? state.students.find(x => x.id === id) : { name: '', role: '', goal: '', talent: '', group: 'Tổ 1', avatarUrl: '', gender: 'Nữ', dob: '', boardingType: 'Ngoại trú', ethnicity: 'Kinh', isUnionMember: 'Chưa', prevAcademic: '', prevConduct: '' };
+            const s = id ? state.students.find(x => x.id === id) : { name: '', role: '', goal: '', talent: '', group: 'Tổ 1', avatarUrl: '', gender: 'Nữ', dob: '', boardingType: 'Ngoại trú', ethnicity: 'Kinh', isUnionMember: 'Chưa', prevAcademic: '', prevConduct: '', code: generateUniqueCode() };
             if (!s && id) return;
             
             const roleOptions = ['Lớp trưởng', 'Lớp phó học tập', 'Lớp phó phong trào', 'Bí thư', 'Tổ trưởng'].map(role => 
@@ -4758,7 +4769,7 @@ function renderViewCaiDat() {
                                         <span>Mã tra cứu: <span id="display-s-code" class="tracking-wider">${s.code || '---'}</span></span>
                                     </div>
                                     <input type="hidden" id="edit-s-code" value="${escapeHtmlAttr(s.code || '')}">
-                                    <button type="button" onclick="const newCode = Math.floor(10000 + Math.random() * 90000).toString(); document.getElementById('edit-s-code').value = newCode; document.getElementById('display-s-code').innerText = newCode; showToast('Đã đổi mã mới!');" class="text-[11px] font-bold text-slate-400 hover:text-[#5468ff] underline cursor-pointer transition-colors">Đổi ngẫu nhiên</button>
+                                    <button type="button" onclick="const newCode = generateUniqueCode(); document.getElementById('edit-s-code').value = newCode; document.getElementById('display-s-code').innerText = newCode; showToast('Đã đổi mã mới!');" class="text-[11px] font-bold text-slate-400 hover:text-[#5468ff] underline cursor-pointer transition-colors">Cấp mã mới</button>
                                 </div>
                             </div>
                             
@@ -4850,6 +4861,10 @@ window.saveStudentEdit = function() {
         prevConduct: document.getElementById('edit-s-prev-conduct').value
     };
     
+    // Bảo đảm mỗi học sinh có mã riêng, không trùng với bạn khác
+    const dupCode = !studentData.code || state.students.some(x => String(x.code) === String(studentData.code) && x.id !== state.editingStudentId);
+    if (dupCode) studentData.code = generateUniqueCode();
+
    // 3. Xử lý Lưu (Cập nhật người cũ hoặc Thêm người mới)
     if (state.editingStudentId) {
         const index = state.students.findIndex(s => s.id === state.editingStudentId);
@@ -5437,6 +5452,31 @@ window.performDirectLookup = function() {
                 });
             }
 
+            // --- Lịch sử cộng / trừ điểm ---
+            const escH = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const hist = [...(student.history || [])].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+            const totalPlus = hist.reduce((t, h) => t + (Number(h.points) > 0 ? Number(h.points) : 0), 0);
+            const totalMinus = hist.reduce((t, h) => t + (Number(h.points) < 0 ? Number(h.points) : 0), 0);
+            const fmtD = d => { const x = new Date(d); return isNaN(x) ? '' : `${String(x.getDate()).padStart(2, '0')}/${String(x.getMonth() + 1).padStart(2, '0')}/${x.getFullYear()}`; };
+            const historyRows = hist.slice(0, 60).map(h => {
+                const pts = Number(h.points) || 0; const pos = pts > 0;
+                return `<div class="flex items-center gap-3 p-3 rounded-2xl border ${pos ? 'bg-emerald-50/60 border-emerald-100' : 'bg-red-50/60 border-red-100'}">
+                    <div class="w-14 flex-shrink-0 text-center font-black text-xl ${pos ? 'text-emerald-600' : 'text-red-600'}">${pos ? '+' : ''}${pts}</div>
+                    <div class="flex-1 min-w-0"><div class="text-sm font-bold text-slate-700 break-words">${escH(h.reason)}</div><div class="text-[11px] text-slate-400 font-semibold">${fmtD(h.date)}</div></div>
+                </div>`;
+            }).join('');
+            const historyCardHtml = `
+                <div class="bg-white rounded-[2rem] p-6 md:p-8 shadow-sm border border-slate-200">
+                    <h3 class="font-black text-slate-800 mb-5 flex items-center gap-3 text-lg"><i class="ph-fill ph-plus-minus text-indigo-500 text-2xl"></i> Điểm cộng / trừ</h3>
+                    <div class="grid grid-cols-2 gap-3 mb-5">
+                        <div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-center"><div class="text-[11px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Đã được cộng</div><div class="text-3xl font-black text-emerald-600">+${totalPlus}</div></div>
+                        <div class="bg-red-50 border border-red-100 rounded-2xl p-4 text-center"><div class="text-[11px] font-bold text-red-500 uppercase tracking-widest mb-1">Đã bị trừ</div><div class="text-3xl font-black text-red-600">${totalMinus}</div></div>
+                    </div>
+                    <div class="space-y-2 max-h-80 overflow-y-auto custom-scrollbar pr-1">
+                        ${historyRows || '<div class="text-center text-slate-400 italic py-6 text-sm">Chưa có lịch sử cộng / trừ điểm.</div>'}
+                    </div>
+                </div>`;
+
             document.getElementById('modal-container').innerHTML = `
                 <div class="fixed inset-0 bg-[#f8fafc] z-[100] flex flex-col overflow-y-auto animate-fade-in custom-scrollbar" id="parent-view-modal">
                     <div class="bg-primary text-white p-5 sticky top-0 z-20 flex justify-between items-center shadow-lg print:hidden">
@@ -5463,6 +5503,8 @@ window.performDirectLookup = function() {
                                 </div>
                             </div>
                         </div>
+
+                        ${historyCardHtml}
 
                         <div class="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-200 relative overflow-hidden">
                             <h3 class="font-black text-slate-800 mb-10 flex items-center gap-3 text-xl"><i class="ph-fill ph-path text-blueAccent text-3xl"></i> Hành trình phấn đấu</h3>
@@ -5492,11 +5534,11 @@ window.performDirectLookup = function() {
                                 </div>
                             </div>
                             <div class="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-200">
-                                <h3 class="font-black text-slate-800 mb-6 flex items-center gap-3 text-lg"><i class="ph-fill ph-envelope-open text-pink-500 text-2xl"></i> Lời nhắn từ Giáo viên</h3>
+                                <h3 class="font-black text-slate-800 mb-6 flex items-center gap-3 text-lg"><i class="ph-fill ph-envelope-open text-pink-500 text-2xl"></i> Nhận xét của Giáo viên chủ nhiệm</h3>
                                 <div class="bg-gradient-to-b from-pink-50 to-white p-6 rounded-2xl border border-pink-100 shadow-inner h-[calc(100%-4rem)] text-sm font-medium text-slate-700 leading-relaxed relative">
                                     <i class="ph-fill ph-quotes text-3xl text-pink-200 absolute top-4 left-4"></i>
                                     <div class="relative z-10 pt-4 pl-2">
-                                        ${student.comment ? escapeHtmlAttr(student.comment).replace(/\n/g, '<br>') : '<span class="text-slate-400 italic">Hiện tại giáo viên chưa có lời nhắn nào cho học sinh.</span>'}
+                                        ${student.comment ? escapeHtmlAttr(student.comment).replace(/\n/g, '<br>') : '<span class="text-slate-400 italic">Giáo viên chủ nhiệm chưa có nhận xét cho học sinh này.</span>'}
                                     </div>
                                 </div>
                             </div>
@@ -7385,9 +7427,9 @@ window.parseExcelToDailySchedule = function(rows) {
                             </div>
                             
                             <!-- Cổng tra cứu PHHS -->
-                            <p class="text-center text-xs text-orange-500 font-bold mb-3">Nhập mã tra cứu (5 số) để xem điểm & nề nếp</p>
+                            <p class="text-center text-xs text-orange-500 font-bold mb-3">Nhập mã học sinh (5 số) để xem tổng điểm, điểm cộng/trừ và nhận xét của GVCN</p>
                             <div class="flex gap-2">
-                                <input type="text" id="login-lookup-code" placeholder="Vd: 38323" maxlength="5" class="flex-1 px-5 py-4 border-2 border-orange-100 bg-orange-50/30 rounded-2xl text-lg font-black text-center tracking-[0.2em] text-slate-800 focus:border-orange-400 outline-none transition-colors" onkeypress="if(event.key === 'Enter') performParentLookupFromLogin()">
+                                <input type="text" id="login-lookup-code" placeholder="Vd: 11001" maxlength="5" inputmode="numeric" class="flex-1 px-5 py-4 border-2 border-orange-100 bg-orange-50/30 rounded-2xl text-lg font-black text-center tracking-[0.2em] text-slate-800 focus:border-orange-400 outline-none transition-colors" onkeypress="if(event.key === 'Enter') performParentLookupFromLogin()">
                                 <button onclick="performParentLookupFromLogin()" class="w-14 bg-orange-500 text-white font-bold rounded-2xl hover:bg-orange-600 shadow-md transition-colors flex items-center justify-center">
                                     <i class="ph-bold ph-magnifying-glass text-xl"></i>
                                 </button>
