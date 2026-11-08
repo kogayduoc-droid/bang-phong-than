@@ -4,6 +4,62 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>THANH XUÂN 11D</title>
+    <meta name="theme-color" content="#f8fafc">
+    <!-- Giao diện sáng/tối + ghi nhận lỗi (chạy sớm để không bị nháy màu) -->
+    <script>
+    (function () {
+        var KEY = 'uiTheme';
+        var NAMES = { light: 'Sáng', dark: 'Tối', auto: 'Tự động' };
+        var ICONS = { light: 'ph-sun', dark: 'ph-moon', auto: 'ph-circle-half' };
+        function pref() { try { return localStorage.getItem(KEY) || 'light'; } catch (e) { return 'light'; } }
+        function isDark(p) { return p === 'dark' || (p === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); }
+        function refresh() {
+            var p = pref();
+            document.querySelectorAll('[data-theme-icon]').forEach(function (el) { el.className = 'ph-bold ' + ICONS[p] + ' ' + (el.getAttribute('data-size') || 'text-lg'); });
+            document.querySelectorAll('[data-theme-label]').forEach(function (el) { el.textContent = NAMES[p]; });
+        }
+        function apply() {
+            var d = isDark(pref());
+            document.documentElement.classList.toggle('dark', d);
+            var m = document.querySelector('meta[name="theme-color"]');
+            if (m) m.setAttribute('content', d ? '#0b1220' : '#f8fafc');
+            refresh();
+        }
+        window.getThemePref = pref;
+        window.themeIconClass = function () { return 'ph-bold ' + ICONS[pref()]; };
+        window.themeName = function () { return NAMES[pref()]; };
+        window.applyTheme = apply;
+        window.setThemePref = function (p) { try { localStorage.setItem(KEY, p); } catch (e) {} apply(); };
+        window.cycleTheme = function () {
+            var order = ['light', 'dark', 'auto'];
+            var next = order[(order.indexOf(pref()) + 1) % order.length];
+            window.setThemePref(next);
+            if (typeof window.showToast === 'function') window.showToast('Giao diện: ' + NAMES[next], 'success');
+        };
+        document.documentElement.classList.toggle('dark', isDark(pref()));
+        if (window.matchMedia) {
+            var mq = window.matchMedia('(prefers-color-scheme: dark)');
+            var onChange = function () { if (pref() === 'auto') apply(); };
+            if (mq.addEventListener) mq.addEventListener('change', onChange); else if (mq.addListener) mq.addListener(onChange);
+        }
+        document.addEventListener('DOMContentLoaded', apply);
+
+        // Ghi lại lỗi để xem trong dev mode
+        var logs = window.__devLogs = [];
+        function push(kind, text) {
+            try { logs.push({ t: Date.now(), k: kind, m: String(text).slice(0, 2000) }); if (logs.length > 300) logs.shift(); } catch (e) {}
+        }
+        ['error', 'warn'].forEach(function (k) {
+            var orig = console[k];
+            console[k] = function () {
+                try { push(k, Array.prototype.map.call(arguments, function (a) { return (a && a.stack) ? a.stack : (typeof a === 'object' ? JSON.stringify(a) : String(a)); }).join(' ')); } catch (e) {}
+                return orig.apply(console, arguments);
+            };
+        });
+        window.addEventListener('error', function (e) { push('error', (e.message || 'Lỗi') + ' @' + String(e.filename || '').split('/').pop() + ':' + (e.lineno || '?')); });
+        window.addEventListener('unhandledrejection', function (e) { push('promise', (e.reason && (e.reason.stack || e.reason.message)) || e.reason); });
+    })();
+    </script>
     
     <!-- External Libraries -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -65,7 +121,7 @@
         }
     </script>
 
-    <style>
+    <style data-keep="1">
         @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap');
         
        body { 
@@ -135,6 +191,312 @@
             .custom-scrollbar { overflow: visible !important; max-height: none !important; }
             .print\:hidden { display: none !important; }
         }
+    </style>
+    <!-- Chế độ tối -->
+    <style data-keep="1">
+@media screen {
+html.dark{color-scheme:dark}
+html.dark body{background:#0b1220;color:#e2e8f0}
+html.dark #app{background:#0b1220}
+html.dark .glass{background:rgba(17,26,42,.78);border-color:rgba(255,255,255,.07)}
+html.dark .bg-\[\#f8fafc\]{background-color:#0b1220}
+html.dark .text-\[\#1e1b4b\]{color:#a5b4fc}
+html.dark .text-\[\#1e293b\],html.dark .text-\[\#0f172a\]{color:#f1f5f9}
+html.dark ::placeholder{color:#64748b}
+html.dark input,html.dark select,html.dark textarea{color-scheme:dark}
+html.dark #full-timetable-section table{background:#182234;border-color:#2a3a58;box-shadow:none}
+html.dark #full-timetable-section td,html.dark #full-timetable-section th{border-color:#2a3a58;color:#cbd5e1}
+html.dark #full-timetable-section tr:nth-child(odd):not(:nth-child(1)){background-color:#1b2740}
+html.dark .bg-amber-50{background-color:rgba(245,158,11,0.10)}
+html.dark .bg-blue-100{background-color:rgba(59,130,246,0.16)}
+html.dark .bg-blue-50{background-color:rgba(59,130,246,0.10)}
+html.dark .bg-emerald-100{background-color:rgba(16,185,129,0.16)}
+html.dark .bg-emerald-50{background-color:rgba(16,185,129,0.10)}
+html.dark .bg-indigo-100{background-color:rgba(99,102,241,0.16)}
+html.dark .bg-indigo-50{background-color:rgba(99,102,241,0.10)}
+html.dark .bg-orange-100{background-color:rgba(249,115,22,0.16)}
+html.dark .bg-orange-50{background-color:rgba(249,115,22,0.10)}
+html.dark .bg-pink-50{background-color:rgba(236,72,153,0.10)}
+html.dark .bg-purple-100{background-color:rgba(168,85,247,0.16)}
+html.dark .bg-purple-200{background-color:rgba(168,85,247,0.26)}
+html.dark .bg-purple-50{background-color:rgba(168,85,247,0.10)}
+html.dark .bg-red-100{background-color:rgba(239,68,68,0.16)}
+html.dark .bg-red-50{background-color:rgba(239,68,68,0.10)}
+html.dark .bg-rose-100{background-color:rgba(244,63,94,0.16)}
+html.dark .bg-rose-50{background-color:rgba(244,63,94,0.10)}
+html.dark .bg-slate-100\/50{background-color:rgba(27,39,64,0.50)}
+html.dark .bg-slate-100{background-color:#1b2740}
+html.dark .bg-slate-200{background-color:#25334f}
+html.dark .bg-slate-300{background-color:#31425f}
+html.dark .bg-slate-50\/30{background-color:rgba(17,26,43,0.30)}
+html.dark .bg-slate-50\/50{background-color:rgba(17,26,43,0.50)}
+html.dark .bg-slate-50\/80{background-color:rgba(17,26,43,0.80)}
+html.dark .bg-slate-50{background-color:#111a2b}
+html.dark .bg-slate-800{background-color:#2a3a56}
+html.dark .bg-slate-900\/60{background-color:rgba(51,74,115,0.60)}
+html.dark .bg-slate-900\/70{background-color:rgba(51,74,115,0.70)}
+html.dark .bg-slate-900\/80{background-color:rgba(51,74,115,0.80)}
+html.dark .bg-slate-900{background-color:#334a73}
+html.dark .bg-violet-100{background-color:rgba(139,92,246,0.16)}
+html.dark .bg-violet-50{background-color:rgba(139,92,246,0.10)}
+html.dark .bg-white\/90{background-color:rgba(24,34,52,0.90)}
+html.dark .bg-white\/95{background-color:rgba(24,34,52,0.95)}
+html.dark .bg-white{background-color:#182234}
+html.dark .bg-yellow-100{background-color:rgba(234,179,8,0.16)}
+html.dark .bg-yellow-50{background-color:rgba(234,179,8,0.10)}
+html.dark .border-amber-200{border-color:rgba(245,158,11,0.32)}
+html.dark .border-blue-100{border-color:rgba(59,130,246,0.22)}
+html.dark .border-blue-200{border-color:rgba(59,130,246,0.32)}
+html.dark .border-emerald-100{border-color:rgba(16,185,129,0.22)}
+html.dark .border-emerald-200{border-color:rgba(16,185,129,0.32)}
+html.dark .border-indigo-100{border-color:rgba(99,102,241,0.22)}
+html.dark .border-indigo-200{border-color:rgba(99,102,241,0.32)}
+html.dark .border-orange-100{border-color:rgba(249,115,22,0.22)}
+html.dark .border-orange-200{border-color:rgba(249,115,22,0.32)}
+html.dark .border-pink-100{border-color:rgba(236,72,153,0.22)}
+html.dark .border-pink-200{border-color:rgba(236,72,153,0.32)}
+html.dark .border-purple-100{border-color:rgba(168,85,247,0.22)}
+html.dark .border-purple-200{border-color:rgba(168,85,247,0.32)}
+html.dark .border-red-100{border-color:rgba(239,68,68,0.22)}
+html.dark .border-red-200{border-color:rgba(239,68,68,0.32)}
+html.dark .border-rose-100{border-color:rgba(244,63,94,0.22)}
+html.dark .border-rose-200{border-color:rgba(244,63,94,0.32)}
+html.dark .border-slate-100{border-color:#1f2b44}
+html.dark .border-slate-200{border-color:#2a3a58}
+html.dark .border-slate-300{border-color:#3a4d70}
+html.dark .border-slate-50{border-color:#1a2438}
+html.dark .border-violet-100{border-color:rgba(139,92,246,0.22)}
+html.dark .border-white{border-color:rgba(255,255,255,.10)}
+html.dark .border-yellow-100{border-color:rgba(234,179,8,0.22)}
+html.dark .border-yellow-200{border-color:rgba(234,179,8,0.32)}
+html.dark .from-blue-50{--tw-gradient-from:rgba(59,130,246,0.10) var(--tw-gradient-from-position);--tw-gradient-to:transparent var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}
+html.dark .from-emerald-50{--tw-gradient-from:rgba(16,185,129,0.10) var(--tw-gradient-from-position);--tw-gradient-to:transparent var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}
+html.dark .from-indigo-50{--tw-gradient-from:rgba(99,102,241,0.10) var(--tw-gradient-from-position);--tw-gradient-to:transparent var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}
+html.dark .from-orange-100{--tw-gradient-from:rgba(249,115,22,0.16) var(--tw-gradient-from-position);--tw-gradient-to:transparent var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}
+html.dark .from-orange-50{--tw-gradient-from:rgba(249,115,22,0.10) var(--tw-gradient-from-position);--tw-gradient-to:transparent var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}
+html.dark .from-pink-50{--tw-gradient-from:rgba(236,72,153,0.10) var(--tw-gradient-from-position);--tw-gradient-to:transparent var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}
+html.dark .from-red-50{--tw-gradient-from:rgba(239,68,68,0.10) var(--tw-gradient-from-position);--tw-gradient-to:transparent var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}
+html.dark .from-violet-50{--tw-gradient-from:rgba(139,92,246,0.10) var(--tw-gradient-from-position);--tw-gradient-to:transparent var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}
+html.dark .from-yellow-200{--tw-gradient-from:rgba(234,179,8,0.26) var(--tw-gradient-from-position);--tw-gradient-to:transparent var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}
+html.dark .from-yellow-50{--tw-gradient-from:rgba(234,179,8,0.10) var(--tw-gradient-from-position);--tw-gradient-to:transparent var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}
+html.dark .ring-blue-100{--tw-ring-color:rgba(59,130,246,0.22)}
+html.dark .ring-slate-100{--tw-ring-color:#1f2b44}
+html.dark .ring-slate-200{--tw-ring-color:#2a3a58}
+html.dark .ring-slate-50{--tw-ring-color:#1a2438}
+html.dark .ring-white{--tw-ring-color:rgba(255,255,255,.10)}
+html.dark .ring-yellow-300{--tw-ring-color:rgba(234,179,8,0.42)}
+html.dark .text-amber-500{color:#fbbf24}
+html.dark .text-amber-600{color:#fbbf24}
+html.dark .text-amber-700{color:#fcd34d}
+html.dark .text-amber-900{color:#fcd34d}
+html.dark .text-blue-500{color:#60a5fa}
+html.dark .text-blue-600{color:#60a5fa}
+html.dark .text-blue-700{color:#93c5fd}
+html.dark .text-blue-800{color:#93c5fd}
+html.dark .text-blue-900{color:#93c5fd}
+html.dark .text-emerald-500{color:#34d399}
+html.dark .text-emerald-600{color:#34d399}
+html.dark .text-emerald-700{color:#6ee7b7}
+html.dark .text-green-500{color:#4ade80}
+html.dark .text-green-600{color:#4ade80}
+html.dark .text-indigo-500{color:#818cf8}
+html.dark .text-indigo-600{color:#818cf8}
+html.dark .text-indigo-700{color:#a5b4fc}
+html.dark .text-orange-500{color:#fb923c}
+html.dark .text-orange-600{color:#fb923c}
+html.dark .text-orange-700{color:#fdba74}
+html.dark .text-pink-500{color:#f472b6}
+html.dark .text-pink-600{color:#f472b6}
+html.dark .text-pink-700{color:#f9a8d4}
+html.dark .text-pink-800{color:#f9a8d4}
+html.dark .text-purple-500{color:#c084fc}
+html.dark .text-purple-600{color:#c084fc}
+html.dark .text-purple-700{color:#d8b4fe}
+html.dark .text-purple-800{color:#d8b4fe}
+html.dark .text-red-500{color:#f87171}
+html.dark .text-red-600{color:#f87171}
+html.dark .text-red-700{color:#fca5a5}
+html.dark .text-rose-500{color:#fb7185}
+html.dark .text-rose-600{color:#fb7185}
+html.dark .text-rose-700{color:#fda4af}
+html.dark .text-slate-400{color:#8493ab}
+html.dark .text-slate-500{color:#a0aec4}
+html.dark .text-slate-600{color:#cbd5e1}
+html.dark .text-slate-700{color:#e2e8f0}
+html.dark .text-slate-800{color:#f1f5f9}
+html.dark .text-slate-900{color:#f8fafc}
+html.dark .text-violet-500{color:#a78bfa}
+html.dark .text-violet-600{color:#a78bfa}
+html.dark .text-violet-700{color:#c4b5fd}
+html.dark .text-violet-900{color:#c4b5fd}
+html.dark .text-yellow-500{color:#facc15}
+html.dark .text-yellow-600{color:#facc15}
+html.dark .text-yellow-700{color:#fde047}
+html.dark .text-yellow-900{color:#fde047}
+html.dark .to-amber-100{--tw-gradient-to:rgba(245,158,11,0.16) var(--tw-gradient-to-position)}
+html.dark .to-amber-50{--tw-gradient-to:rgba(245,158,11,0.10) var(--tw-gradient-to-position)}
+html.dark .to-indigo-50{--tw-gradient-to:rgba(99,102,241,0.10) var(--tw-gradient-to-position)}
+html.dark .active\:bg-slate-100:active{background-color:#1b2740}
+html.dark .focus\:bg-amber-50:focus{background-color:rgba(245,158,11,0.10)}
+html.dark .focus\:bg-white:focus{background-color:#182234}
+html.dark .focus\:border-slate-300:focus{border-color:#3a4d70}
+html.dark .focus\:border-white:focus{border-color:rgba(255,255,255,.10)}
+html.dark .focus\:ring-blue-100:focus{--tw-ring-color:rgba(59,130,246,0.22)}
+html.dark .focus\:ring-blue-200:focus{--tw-ring-color:rgba(59,130,246,0.32)}
+html.dark .focus\:ring-emerald-100:focus{--tw-ring-color:rgba(16,185,129,0.22)}
+html.dark .focus\:ring-indigo-100:focus{--tw-ring-color:rgba(99,102,241,0.22)}
+html.dark .focus\:ring-purple-100:focus{--tw-ring-color:rgba(168,85,247,0.22)}
+html.dark .focus\:ring-rose-100:focus{--tw-ring-color:rgba(244,63,94,0.22)}
+html.dark .group:hover .group-hover\:bg-indigo-100{background-color:rgba(99,102,241,0.16)}
+html.dark .group:hover .group-hover\:text-indigo-500{color:#818cf8}
+html.dark .group:hover .group-hover\:text-slate-900{color:#f8fafc}
+html.dark .hover\:bg-amber-100:hover{background-color:rgba(245,158,11,0.16)}
+html.dark .hover\:bg-blue-100:hover{background-color:rgba(59,130,246,0.16)}
+html.dark .hover\:bg-blue-50:hover{background-color:rgba(59,130,246,0.10)}
+html.dark .hover\:bg-emerald-100:hover{background-color:rgba(16,185,129,0.16)}
+html.dark .hover\:bg-emerald-50:hover{background-color:rgba(16,185,129,0.10)}
+html.dark .hover\:bg-indigo-100:hover{background-color:rgba(99,102,241,0.16)}
+html.dark .hover\:bg-orange-100:hover{background-color:rgba(249,115,22,0.16)}
+html.dark .hover\:bg-purple-100:hover{background-color:rgba(168,85,247,0.16)}
+html.dark .hover\:bg-purple-50:hover{background-color:rgba(168,85,247,0.10)}
+html.dark .hover\:bg-red-100:hover{background-color:rgba(239,68,68,0.16)}
+html.dark .hover\:bg-red-50:hover{background-color:rgba(239,68,68,0.10)}
+html.dark .hover\:bg-rose-100:hover{background-color:rgba(244,63,94,0.16)}
+html.dark .hover\:bg-slate-100:hover{background-color:#1b2740}
+html.dark .hover\:bg-slate-200:hover{background-color:#25334f}
+html.dark .hover\:bg-slate-300:hover{background-color:#31425f}
+html.dark .hover\:bg-slate-50\/50:hover{background-color:rgba(17,26,43,0.50)}
+html.dark .hover\:bg-slate-50\/80:hover{background-color:rgba(17,26,43,0.80)}
+html.dark .hover\:bg-slate-50:hover{background-color:#111a2b}
+html.dark .hover\:bg-violet-100:hover{background-color:rgba(139,92,246,0.16)}
+html.dark .hover\:border-blue-200:hover{border-color:rgba(59,130,246,0.32)}
+html.dark .hover\:border-blue-300:hover{border-color:rgba(59,130,246,0.42)}
+html.dark .hover\:border-emerald-300:hover{border-color:rgba(16,185,129,0.42)}
+html.dark .hover\:border-indigo-100:hover{border-color:rgba(99,102,241,0.22)}
+html.dark .hover\:border-indigo-200:hover{border-color:rgba(99,102,241,0.32)}
+html.dark .hover\:border-indigo-300:hover{border-color:rgba(99,102,241,0.42)}
+html.dark .hover\:border-pink-300:hover{border-color:rgba(236,72,153,0.42)}
+html.dark .hover\:border-red-300:hover{border-color:rgba(239,68,68,0.42)}
+html.dark .hover\:border-rose-300:hover{border-color:rgba(244,63,94,0.42)}
+html.dark .hover\:border-slate-200:hover{border-color:#2a3a58}
+html.dark .hover\:border-slate-300:hover{border-color:#3a4d70}
+html.dark .hover\:border-violet-100:hover{border-color:rgba(139,92,246,0.22)}
+html.dark .hover\:text-blue-600:hover{color:#60a5fa}
+html.dark .hover\:text-emerald-600:hover{color:#34d399}
+html.dark .hover\:text-indigo-500:hover{color:#818cf8}
+html.dark .hover\:text-indigo-800:hover{color:#a5b4fc}
+html.dark .hover\:text-purple-600:hover{color:#c084fc}
+html.dark .hover\:text-red-500:hover{color:#f87171}
+html.dark .hover\:text-red-600:hover{color:#f87171}
+html.dark .hover\:text-slate-600:hover{color:#cbd5e1}
+html.dark .hover\:text-slate-700:hover{color:#e2e8f0}
+html.dark .hover\:text-slate-800:hover{color:#f1f5f9}
+html.dark .hover\:text-violet-700:hover{color:#c4b5fd}
+html.dark .bg-blue-200{background-color:rgba(59,130,246,0.26)}
+html.dark .border-blue-300{border-color:rgba(59,130,246,0.42)}
+html.dark .bg-indigo-200{background-color:rgba(99,102,241,0.26)}
+html.dark .text-indigo-800{color:#a5b4fc}
+html.dark .text-indigo-900{color:#a5b4fc}
+html.dark .border-indigo-300{border-color:rgba(99,102,241,0.42)}
+html.dark .bg-emerald-200{background-color:rgba(16,185,129,0.26)}
+html.dark .text-emerald-800{color:#6ee7b7}
+html.dark .text-emerald-900{color:#6ee7b7}
+html.dark .border-emerald-300{border-color:rgba(16,185,129,0.42)}
+html.dark .bg-green-50{background-color:rgba(34,197,94,0.10)}
+html.dark .bg-green-100{background-color:rgba(34,197,94,0.16)}
+html.dark .bg-green-200{background-color:rgba(34,197,94,0.26)}
+html.dark .text-green-700{color:#86efac}
+html.dark .text-green-800{color:#86efac}
+html.dark .text-green-900{color:#86efac}
+html.dark .border-green-100{border-color:rgba(34,197,94,0.22)}
+html.dark .border-green-200{border-color:rgba(34,197,94,0.32)}
+html.dark .border-green-300{border-color:rgba(34,197,94,0.42)}
+html.dark .bg-red-200{background-color:rgba(239,68,68,0.26)}
+html.dark .text-red-800{color:#fca5a5}
+html.dark .text-red-900{color:#fca5a5}
+html.dark .border-red-300{border-color:rgba(239,68,68,0.42)}
+html.dark .bg-rose-200{background-color:rgba(244,63,94,0.26)}
+html.dark .text-rose-800{color:#fda4af}
+html.dark .text-rose-900{color:#fda4af}
+html.dark .border-rose-300{border-color:rgba(244,63,94,0.42)}
+html.dark .bg-amber-100{background-color:rgba(245,158,11,0.16)}
+html.dark .bg-amber-200{background-color:rgba(245,158,11,0.26)}
+html.dark .text-amber-800{color:#fcd34d}
+html.dark .border-amber-100{border-color:rgba(245,158,11,0.22)}
+html.dark .border-amber-300{border-color:rgba(245,158,11,0.42)}
+html.dark .bg-yellow-200{background-color:rgba(234,179,8,0.26)}
+html.dark .text-yellow-800{color:#fde047}
+html.dark .border-yellow-300{border-color:rgba(234,179,8,0.42)}
+html.dark .bg-orange-200{background-color:rgba(249,115,22,0.26)}
+html.dark .text-orange-800{color:#fdba74}
+html.dark .text-orange-900{color:#fdba74}
+html.dark .border-orange-300{border-color:rgba(249,115,22,0.42)}
+html.dark .text-purple-900{color:#d8b4fe}
+html.dark .border-purple-300{border-color:rgba(168,85,247,0.42)}
+html.dark .bg-violet-200{background-color:rgba(139,92,246,0.26)}
+html.dark .text-violet-800{color:#c4b5fd}
+html.dark .border-violet-200{border-color:rgba(139,92,246,0.32)}
+html.dark .border-violet-300{border-color:rgba(139,92,246,0.42)}
+html.dark .bg-pink-100{background-color:rgba(236,72,153,0.16)}
+html.dark .bg-pink-200{background-color:rgba(236,72,153,0.26)}
+html.dark .text-pink-900{color:#f9a8d4}
+html.dark .border-pink-300{border-color:rgba(236,72,153,0.42)}
+html.dark .bg-fuchsia-50{background-color:rgba(217,70,239,0.10)}
+html.dark .bg-fuchsia-100{background-color:rgba(217,70,239,0.16)}
+html.dark .bg-fuchsia-200{background-color:rgba(217,70,239,0.26)}
+html.dark .text-fuchsia-500{color:#e879f9}
+html.dark .text-fuchsia-600{color:#e879f9}
+html.dark .text-fuchsia-700{color:#f0abfc}
+html.dark .text-fuchsia-800{color:#f0abfc}
+html.dark .text-fuchsia-900{color:#f0abfc}
+html.dark .border-fuchsia-100{border-color:rgba(217,70,239,0.22)}
+html.dark .border-fuchsia-200{border-color:rgba(217,70,239,0.32)}
+html.dark .border-fuchsia-300{border-color:rgba(217,70,239,0.42)}
+html.dark .bg-cyan-50{background-color:rgba(6,182,212,0.10)}
+html.dark .bg-cyan-100{background-color:rgba(6,182,212,0.16)}
+html.dark .bg-cyan-200{background-color:rgba(6,182,212,0.26)}
+html.dark .text-cyan-500{color:#22d3ee}
+html.dark .text-cyan-600{color:#22d3ee}
+html.dark .text-cyan-700{color:#67e8f9}
+html.dark .text-cyan-800{color:#67e8f9}
+html.dark .text-cyan-900{color:#67e8f9}
+html.dark .border-cyan-100{border-color:rgba(6,182,212,0.22)}
+html.dark .border-cyan-200{border-color:rgba(6,182,212,0.32)}
+html.dark .border-cyan-300{border-color:rgba(6,182,212,0.42)}
+html.dark .bg-sky-50{background-color:rgba(14,165,233,0.10)}
+html.dark .bg-sky-100{background-color:rgba(14,165,233,0.16)}
+html.dark .bg-sky-200{background-color:rgba(14,165,233,0.26)}
+html.dark .text-sky-500{color:#38bdf8}
+html.dark .text-sky-600{color:#38bdf8}
+html.dark .text-sky-700{color:#7dd3fc}
+html.dark .text-sky-800{color:#7dd3fc}
+html.dark .text-sky-900{color:#7dd3fc}
+html.dark .border-sky-100{border-color:rgba(14,165,233,0.22)}
+html.dark .border-sky-200{border-color:rgba(14,165,233,0.32)}
+html.dark .border-sky-300{border-color:rgba(14,165,233,0.42)}
+html.dark .bg-teal-50{background-color:rgba(20,184,166,0.10)}
+html.dark .bg-teal-100{background-color:rgba(20,184,166,0.16)}
+html.dark .bg-teal-200{background-color:rgba(20,184,166,0.26)}
+html.dark .text-teal-500{color:#2dd4bf}
+html.dark .text-teal-600{color:#2dd4bf}
+html.dark .text-teal-700{color:#5eead4}
+html.dark .text-teal-800{color:#5eead4}
+html.dark .text-teal-900{color:#5eead4}
+html.dark .border-teal-100{border-color:rgba(20,184,166,0.22)}
+html.dark .border-teal-200{border-color:rgba(20,184,166,0.32)}
+html.dark .border-teal-300{border-color:rgba(20,184,166,0.42)}
+html.dark .bg-lime-50{background-color:rgba(132,204,22,0.10)}
+html.dark .bg-lime-100{background-color:rgba(132,204,22,0.16)}
+html.dark .bg-lime-200{background-color:rgba(132,204,22,0.26)}
+html.dark .text-lime-500{color:#a3e635}
+html.dark .text-lime-600{color:#a3e635}
+html.dark .text-lime-700{color:#bef264}
+html.dark .text-lime-800{color:#bef264}
+html.dark .text-lime-900{color:#bef264}
+html.dark .border-lime-100{border-color:rgba(132,204,22,0.22)}
+html.dark .border-lime-200{border-color:rgba(132,204,22,0.32)}
+html.dark .border-lime-300{border-color:rgba(132,204,22,0.42)}
+}
     </style>
 </head>
 <body>
@@ -438,7 +800,8 @@ window.openMobileMenu = function() {
                     <button onclick="closeMobileMenu()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 active:bg-white/20 flex-shrink-0" aria-label="Đóng menu"><i class="ph-bold ph-x text-xl"></i></button>
                 </div>
                 <nav class="flex-1 overflow-y-auto p-3 space-y-1">${listHtml}</nav>
-                <div class="p-3 border-t border-white/10">
+                <div class="p-3 border-t border-white/10 space-y-1">
+                    <button onclick="cycleTheme()" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl font-bold text-[15px] text-indigo-100 active:bg-white/10"><i class="${themeIconClass()} text-2xl" data-size="text-2xl" data-theme-icon></i><span>Giao diện: <b data-theme-label>${themeName()}</b></span></button>
                     <button onclick="closeMobileMenu(); logout()" class="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl font-bold text-[15px] text-red-300 active:bg-white/10">
                         <i class="ph-bold ph-sign-out text-2xl"></i><span>Đăng xuất</span>
                     </button>
@@ -463,7 +826,7 @@ function renderHeader() {
         <header class="glass sticky top-0 px-3 md:px-6 py-2.5 md:py-4 flex justify-between items-center z-10 flex-shrink-0 print:hidden shadow-sm">
             <div class="flex items-center gap-3">
                 <button class="md:hidden w-11 h-11 flex items-center justify-center text-slate-700 bg-white border border-slate-200 shadow-sm active:bg-slate-100 rounded-xl flex-shrink-0" onclick="openMobileMenu()" aria-label="Mở menu"><i class="ph-bold ph-list text-2xl"></i></button>
-                <h2 class="text-base md:text-xl font-black text-slate-800 tracking-tight block truncate max-w-[42vw] md:max-w-none capitalize">${menuItems.find(m => m.id === state.currentTab)?.label || 'Bảng điều khiển'}</h2>
+                <h2 data-dev-a class="select-none text-base md:text-xl font-black text-slate-800 tracking-tight block truncate max-w-[42vw] md:max-w-none capitalize">${menuItems.find(m => m.id === state.currentTab)?.label || 'Bảng điều khiển'}</h2>
             </div>
             
            <div class="flex items-center gap-2 md:gap-4">
@@ -475,6 +838,7 @@ function renderHeader() {
                 </button>
                 ` : ''}
                 
+                <button data-dev-b onclick="cycleTheme()" class="w-9 h-9 md:w-10 md:h-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-600 shadow-sm hover:bg-slate-50 active:scale-95 transition-all" title="Đổi giao diện sáng / tối" aria-label="Đổi giao diện"><i class="${themeIconClass()} text-lg" data-theme-icon></i></button>
                 <button onclick="openParentLookupModal()" class="flex items-center gap-2 text-xs font-bold text-white bg-gradient-to-r from-orange-400 to-amber-500 px-4 py-2 rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all" title="Cổng Phụ Huynh tra cứu">
                     <i class="ph-bold ph-magnifying-glass text-sm"></i> <span class="hidden sm:inline">Tra cứu</span>
                 </button>
@@ -5947,12 +6311,16 @@ window.exportToPDF = function() {
             };
 
             // Thực hiện xuất file
+            const __wasDark = document.documentElement.classList.contains('dark');
+            document.documentElement.classList.remove('dark');
             html2pdf().set(opt).from(element).save().then(() => {
+                if (__wasDark) document.documentElement.classList.add('dark');
                 btn.innerHTML = originalText;
                 btn.disabled = false;
                 btn.classList.remove('opacity-70');
                 showToast("Đã tải xuống file PDF thành công!", "success");
             }).catch(err => {
+                if (__wasDark) document.documentElement.classList.add('dark');
                 btn.innerHTML = originalText;
                 btn.disabled = false;
                 btn.classList.remove('opacity-70');
@@ -7855,6 +8223,7 @@ window.parseExcelToDailySchedule = function(rows) {
 
                         <!-- CỘT PHẢI (Form Đăng nhập) -->
                         <div class="w-full md:w-1/2 p-8 md:p-14 flex flex-col justify-center bg-white relative z-10">
+                            <button data-dev-b onclick="cycleTheme()" title="Đổi giao diện sáng / tối" aria-label="Đổi giao diện" class="absolute top-5 left-5 w-11 h-11 rounded-2xl bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 active:scale-95 transition-all flex items-center justify-center z-20"><i class="${themeIconClass()} text-xl" data-size="text-xl" data-theme-icon></i></button>
                             <!-- NÚT CÚP: BẢNG PHONG THẦN -->
                             <button onclick="openHallOfFame()" title="Bảng Phong Thần" class="absolute top-5 right-5 w-11 h-11 rounded-2xl bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-500 text-white shadow-[0_8px_20px_rgba(245,158,11,0.45)] hover:scale-110 active:scale-95 transition-transform flex items-center justify-center z-20 ring-2 ring-white/60 md:hidden">
                                 <i class="ph-fill ph-trophy text-xl"></i>
@@ -7864,7 +8233,7 @@ window.parseExcelToDailySchedule = function(rows) {
                             </button>
                             <div class="text-center mb-8">
                                 <div class="w-14 h-14 bg-[#1e1b4b] text-white rounded-2xl mx-auto flex items-center justify-center mb-5 shadow-lg"><i class="ph-fill ph-graduation-cap text-3xl"></i></div>
-                                <h2 class="text-2xl font-black text-slate-800">Đăng Nhập Quản Trị</h2>
+                                <h2 data-dev-a class="select-none text-2xl font-black text-slate-800">Đăng Nhập Quản Trị</h2>
                                 <p class="text-[11px] text-slate-500 uppercase tracking-widest mt-1.5 font-bold">Xác thực phân quyền hệ thống</p>
                             </div>
                             
@@ -8838,5 +9207,420 @@ window.deleteHistoryRecord = function(studentId, recordId) {
             }
         };
         checkRoleFromUrl();</script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a56aecf15d4d02da',t:'MTc5NDAzOTY5OA=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a56aecf15d4d02da',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>
+(function () {
+    'use strict';
+    // ====================== DEV MODE ======================
+    // Mật khẩu KHÔNG lưu dạng chữ thường, chỉ lưu mã băm SHA-256 (đã trộn muối)
+    var DEV_SALT = '11D-dev-v1|';
+    var DEV_HASH = 'cabb2246469b3bccd685cb63658fa90bf8e992d0096bc28080804997cd92030b';
+
+    // ---- SHA-256 thuần JS (chạy được cả khi mở file trực tiếp, không cần HTTPS) ----
+    function sha256(ascii) {
+        function rr(v, a) { return (v >>> a) | (v << (32 - a)); }
+        var pow = Math.pow, mp = pow(2, 32), i, j, result = '';
+        var words = [], len = ascii.length * 8;
+        var hash = sha256.h = sha256.h || [], k = sha256.k = sha256.k || [], pc = k.length, isc = {};
+        for (var c = 2; pc < 64; c++) {
+            if (!isc[c]) {
+                for (i = 0; i < 313; i += c) isc[i] = c;
+                hash[pc] = (pow(c, .5) * mp) | 0; k[pc++] = (pow(c, 1 / 3) * mp) | 0;
+            }
+        }
+        ascii += '\x80';
+        while (ascii.length % 64 - 56) ascii += '\x00';
+        for (i = 0; i < ascii.length; i++) {
+            j = ascii.charCodeAt(i);
+            if (j >> 8) return null;
+            words[i >> 2] |= j << ((3 - i) % 4) * 8;
+        }
+        words[words.length] = ((len / mp) | 0); words[words.length] = len;
+        for (j = 0; j < words.length;) {
+            var w = words.slice(j, j += 16), oh = hash;
+            hash = hash.slice(0, 8);
+            for (i = 0; i < 64; i++) {
+                var w15 = w[i - 15], w2 = w[i - 2], a = hash[0], e = hash[4];
+                var t1 = hash[7] + (rr(e, 6) ^ rr(e, 11) ^ rr(e, 25)) + ((e & hash[5]) ^ (~e & hash[6])) + k[i] +
+                    (w[i] = (i < 16) ? w[i] : (w[i - 16] + (rr(w15, 7) ^ rr(w15, 18) ^ (w15 >>> 3)) + w[i - 7] + (rr(w2, 17) ^ rr(w2, 19) ^ (w2 >>> 10))) | 0);
+                var t2 = (rr(a, 2) ^ rr(a, 13) ^ rr(a, 22)) + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+                hash = [(t1 + t2) | 0].concat(hash); hash[4] = (hash[4] + t1) | 0;
+            }
+            for (i = 0; i < 8; i++) hash[i] = (hash[i] + oh[i]) | 0;
+        }
+        for (i = 0; i < 8; i++) for (j = 3; j + 1; j--) { var b = (hash[i] >> (j * 8)) & 255; result += ((b < 16) ? 0 : '') + b.toString(16); }
+        return result;
+    }
+    function toBinaryString(str) { return unescape(encodeURIComponent(str)); } // UTF-8 -> chuỗi byte
+    function checkPassword(pw) { return sha256(toBinaryString(DEV_SALT + pw)) === DEV_HASH; }
+
+    // ---- Tiện ích ----
+    function $(id) { return document.getElementById(id); }
+    function esc(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    function toast(m, t) { if (typeof showToast === 'function') showToast(m, t || 'success'); }
+    function today() { return new Date().toISOString().slice(0, 10); }
+    function download(name, text, type) {
+        var blob = new Blob([text], { type: type || 'application/json' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = name;
+        document.body.appendChild(a); a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 800);
+    }
+    function isUnlocked() { try { return sessionStorage.getItem('devUnlocked') === '1'; } catch (e) { return false; } }
+    function setUnlocked(v) { try { if (v) sessionStorage.setItem('devUnlocked', '1'); else sessionStorage.removeItem('devUnlocked'); } catch (e) {} }
+
+    // ---- Theo dõi kết nối Firebase ----
+    var fbConnected = null;
+    try {
+        if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length) {
+            firebase.database().ref('.info/connected').on('value', function (s) { fbConnected = s.val() === true; var t = $('dv-fb-state'); if (t) t.textContent = fbText(); });
+        }
+    } catch (e) {}
+    function fbText() {
+        if (typeof dbRef === 'undefined' || !dbRef) return 'Không có Firebase (chạy offline)';
+        return (fbConnected === null ? 'Đang kết nối...' : (fbConnected ? 'Đã kết nối' : 'Mất kết nối')) + (isDataLoaded ? ' • đã tải dữ liệu chung' : ' • chưa tải dữ liệu chung');
+    }
+
+    // ---- CSS riêng của dev panel (không phụ thuộc Tailwind / chế độ sáng-tối) ----
+    var css = document.createElement('style');
+    css.setAttribute('data-dev-css', '1');
+    css.textContent = [
+        '.dv-overlay{position:fixed;inset:0;z-index:300;background:rgba(2,6,23,.82);display:flex;align-items:center;justify-content:center;padding:16px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}',
+        '.dv-box{background:#0b1220;color:#d1fae5;border:1px solid #14532d;border-radius:18px;padding:22px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.6)}',
+        '.dv-box h3{margin:0 0 4px;font-size:16px;color:#4ade80;letter-spacing:.04em}',
+        '.dv-box p{margin:0 0 14px;font-size:12px;color:#86efac;opacity:.75}',
+        '.dv-input{width:100%;box-sizing:border-box;background:#020617;border:1px solid #166534;color:#bbf7d0;border-radius:10px;padding:12px;font:inherit;font-size:16px;outline:none}',
+        '.dv-input:focus{border-color:#4ade80}',
+        '.dv-btn{background:#14532d;color:#bbf7d0;border:1px solid #166534;border-radius:10px;padding:10px 14px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}',
+        '.dv-btn:hover{background:#166534}.dv-btn.dv-pri{background:#16a34a;color:#04130a;border-color:#4ade80}.dv-btn.dv-red{background:#7f1d1d;border-color:#b91c1c;color:#fecaca}',
+        '.dv-btn.dv-block{display:block;width:100%;margin-top:10px}',
+        '.dv-err{color:#fca5a5;font-size:12px;min-height:16px;margin-top:8px}',
+        '@keyframes dvshake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}.dv-shake{animation:dvshake .3s}',
+        '.dv-panel{position:fixed;inset:0;z-index:290;background:#050b14;color:#d1fae5;display:flex;flex-direction:column;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding-top:env(safe-area-inset-top,0)}',
+        '.dv-top{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #14532d;background:#07101c}',
+        '.dv-top b{color:#4ade80;font-size:14px;letter-spacing:.08em}.dv-top span{flex:1;font-size:11px;opacity:.6}',
+        '.dv-tabs{display:flex;gap:6px;overflow-x:auto;padding:8px 12px;border-bottom:1px solid #0f3d22;background:#07101c;-webkit-overflow-scrolling:touch}',
+        '.dv-tab{flex:0 0 auto;background:transparent;color:#86efac;border:1px solid #14532d;border-radius:999px;padding:7px 13px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}',
+        '.dv-tab.on{background:#16a34a;color:#04130a;border-color:#4ade80}',
+        '.dv-body{flex:1;overflow-y:auto;padding:14px 14px calc(30px + env(safe-area-inset-bottom,0));-webkit-overflow-scrolling:touch}',
+        '.dv-card{background:#0b1626;border:1px solid #123524;border-radius:14px;padding:14px;margin-bottom:12px}',
+        '.dv-card h4{margin:0 0 8px;font-size:13px;color:#4ade80}.dv-card p{margin:0 0 10px;font-size:12px;opacity:.75;line-height:1.5}',
+        '.dv-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}',
+        '.dv-kv{display:flex;justify-content:space-between;gap:12px;font-size:12px;padding:6px 0;border-bottom:1px dashed #123524}.dv-kv:last-child{border:0}.dv-kv span:last-child{text-align:right;color:#bbf7d0;word-break:break-all}',
+        '.dv-ta{width:100%;box-sizing:border-box;min-height:160px;background:#020617;color:#bbf7d0;border:1px solid #166534;border-radius:10px;padding:10px;font:inherit;font-size:12px;resize:vertical}',
+        '.dv-pre{background:#020617;border:1px solid #123524;border-radius:10px;padding:10px;font-size:11px;white-space:pre-wrap;word-break:break-word;max-height:260px;overflow:auto;margin-top:8px}',
+        '.dv-log{font-size:11px;padding:7px 9px;border-left:3px solid #16a34a;background:#07101c;margin-bottom:6px;border-radius:6px;word-break:break-word;white-space:pre-wrap}.dv-log.error,.dv-log.promise{border-color:#ef4444;color:#fecaca}.dv-log.warn{border-color:#f59e0b;color:#fde68a}',
+        '.dv-chip{position:fixed;left:10px;bottom:calc(10px + env(safe-area-inset-bottom,0));z-index:250;background:#052e16;color:#4ade80;border:1px solid #166534;border-radius:999px;padding:6px 12px;font:700 11px ui-monospace,Menlo,monospace;letter-spacing:.1em;opacity:.55;cursor:pointer}.dv-chip:hover{opacity:1}',
+        '.dv-note{font-size:11px;color:#fde68a;background:#2a1f05;border:1px solid #78530a;border-radius:10px;padding:8px 10px;margin-top:8px;line-height:1.5}',
+        '.dv-radio{display:flex;gap:14px;font-size:12px;margin:6px 0 10px;flex-wrap:wrap}.dv-radio label{display:flex;gap:6px;align-items:center}'
+    ].join('\n');
+    document.head.appendChild(css);
+
+    // ==================== CHUỖI THAO TÁC ẨN ====================
+    // Bước 1: chạm vào TIÊU ĐỀ trang (hoặc chữ "Đăng Nhập Quản Trị") 5 lần liên tiếp
+    // Bước 2: trong 8 giây, chạm vào NÚT ĐỔI GIAO DIỆN sáng/tối 3 lần  ->  hiện bảng đăng nhập dev
+    var aCount = 0, aTime = 0, armedUntil = 0, bCount = 0, bTime = 0;
+    document.addEventListener('click', function (e) {
+        var now = Date.now();
+        if (now < armedUntil && e.target.closest && e.target.closest('[data-dev-b]')) {
+            e.stopPropagation(); e.preventDefault();      // trong lúc chờ, nút giao diện không đổi theme
+            if (now - bTime > 2500) bCount = 0;
+            bTime = now; bCount++;
+            if (bCount >= 3) { armedUntil = 0; bCount = 0; openLogin(); }
+            return;
+        }
+        var a = e.target.closest && e.target.closest('[data-dev-a]');
+        if (!a) aCount = 0;   // phải chạm LIÊN TIẾP: bất kỳ thao tác nào khác xen vào sẽ đếm lại từ đầu
+        if (a) {
+            if (now - aTime > 1500) aCount = 0;
+            aTime = now; aCount++;
+            if (aCount >= 5) {
+                aCount = 0; armedUntil = now + 8000; bCount = 0;
+                try { if (navigator.vibrate) navigator.vibrate(40); } catch (er) {}
+            }
+        }
+    }, true);
+
+    // ==================== ĐĂNG NHẬP DEV ====================
+    var fails = 0, lockedUntil = 0;
+    function openLogin() {
+        if (isUnlocked()) return openPanel();
+        closeLogin();
+        document.body.insertAdjacentHTML('beforeend',
+            '<div class="dv-overlay" id="dev-login"><div class="dv-box" id="dv-loginbox">' +
+            '<h3>&gt;_ DEV MODE</h3><p>Nhập mật khẩu dev để tiếp tục.</p>' +
+            '<input id="dv-pw" class="dv-input" type="password" autocomplete="off" placeholder="Mật khẩu" />' +
+            '<div class="dv-err" id="dv-err"></div>' +
+            '<button class="dv-btn dv-pri dv-block" onclick="DEV.submit()">Đăng nhập</button>' +
+            '<button class="dv-btn dv-block" onclick="DEV.closeLogin()">Hủy</button></div></div>');
+        var pw = $('dv-pw');
+        pw.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
+        setTimeout(function () { pw.focus(); }, 50);
+    }
+    function closeLogin() { var el = $('dev-login'); if (el) el.remove(); }
+    function submit() {
+        var err = $('dv-err'), pw = $('dv-pw'); if (!pw) return;
+        var now = Date.now();
+        if (now < lockedUntil) { err.textContent = 'Thử lại sau ' + Math.ceil((lockedUntil - now) / 1000) + ' giây.'; return; }
+        if (checkPassword(pw.value)) {
+            fails = 0; setUnlocked(true); closeLogin(); showChip(); openPanel();
+        } else {
+            fails++;
+            var box = $('dv-loginbox'); box.classList.remove('dv-shake'); void box.offsetWidth; box.classList.add('dv-shake');
+            if (fails >= 5) { lockedUntil = now + 30000; fails = 0; err.textContent = 'Sai quá nhiều lần. Khóa 30 giây.'; }
+            else err.textContent = 'Sai mật khẩu.';
+            pw.value = '';
+        }
+    }
+    function showChip() {
+        if ($('dev-chip')) return;
+        document.body.insertAdjacentHTML('beforeend', '<button class="dv-chip" id="dev-chip" onclick="DEV.open()">DEV</button>');
+    }
+    function lock() { setUnlocked(false); var c = $('dev-chip'); if (c) c.remove(); closePanel(); toast('Đã khóa dev mode'); }
+
+    // ==================== BẢNG DEV ====================
+    var TABS = [['tq', 'Tổng quan'], ['dl', 'Dữ liệu'], ['app', 'File app'], ['fb', 'Firebase'], ['vt', 'Vai trò'], ['log', 'Nhật ký'], ['ct', 'Công cụ']];
+    var tab = 'tq';
+    function openPanel() {
+        if (!isUnlocked()) return openLogin();
+        closePanel();
+        document.body.insertAdjacentHTML('beforeend',
+            '<div class="dv-panel" id="dev-panel"><div class="dv-top"><b>&gt;_ DEV</b><span>Thanh Xuân 11D</span>' +
+            '<button class="dv-btn" onclick="DEV.lock()">Khóa</button><button class="dv-btn dv-pri" onclick="DEV.close()">Đóng</button></div>' +
+            '<div class="dv-tabs" id="dv-tabs"></div><div class="dv-body" id="dv-body"></div></div>');
+        document.body.style.overflow = 'hidden';
+        renderTab();
+    }
+    function closePanel() { var p = $('dev-panel'); if (p) p.remove(); if (!$('mobile-menu')) document.body.style.overflow = ''; }
+    function setTab(t) { tab = t; renderTab(); }
+    function renderTab() {
+        $('dv-tabs').innerHTML = TABS.map(function (t) { return '<button class="dv-tab ' + (t[0] === tab ? 'on' : '') + '" onclick="DEV.tab(\'' + t[0] + '\')">' + t[1] + '</button>'; }).join('');
+        var fn = { tq: tabOverview, dl: tabData, app: tabApp, fb: tabFirebase, vt: tabRole, log: tabLog, ct: tabTools }[tab];
+        $('dv-body').innerHTML = fn();
+        if (tab === 'log') { var b = $('dv-body'); b.scrollTop = b.scrollHeight; }
+    }
+    function kv(k, v) { return '<div class="dv-kv"><span>' + k + '</span><span>' + v + '</span></div>'; }
+
+    function tabOverview() {
+        var st = state, sh = getSharedState(), json = JSON.stringify(sh);
+        var hist = (st.students || []).reduce(function (t, s) { return t + ((s.history || []).length); }, 0);
+        var role = st.auth && st.auth.loggedIn ? st.auth.role : 'chưa đăng nhập';
+        return '<div class="dv-card"><h4>Dữ liệu</h4>' +
+            kv('Học sinh', (st.students || []).length) + kv('Lượt cộng/trừ điểm', hist) +
+            kv('Ngày điểm danh', Object.keys(st.attendanceRecords || {}).length) +
+            kv('Tổ', (st.groups || []).length) + kv('Dữ liệu dùng chung', (json.length / 1024).toFixed(1) + ' KB') + '</div>' +
+            '<div class="dv-card"><h4>Hệ thống</h4>' +
+            kv('Firebase', '<span id="dv-fb-state">' + esc(fbText()) + '</span>') + kv('Vai trò hiện tại', esc(role)) +
+            kv('Giao diện', esc(themeName()) + (document.documentElement.classList.contains('dark') ? ' (đang tối)' : ' (đang sáng)')) +
+            kv('Màn hình', innerWidth + '×' + innerHeight + ' @' + (window.devicePixelRatio || 1) + 'x') +
+            kv('Địa chỉ', esc(location.href.slice(0, 80))) + kv('Trình duyệt', esc(navigator.userAgent.slice(0, 90))) +
+            kv('Lỗi đã ghi', (window.__devLogs || []).length) + '</div>' +
+            '<div class="dv-row"><button class="dv-btn" onclick="DEV.tab(\'tq\')">Làm mới</button><button class="dv-btn" onclick="location.reload()">Tải lại trang</button></div>';
+    }
+
+    // ---------- Dữ liệu ----------
+    function tabData() {
+        return '<div class="dv-card"><h4>Xuất JSON</h4><p>Bản đầy đủ gồm cả thông tin đăng nhập/tab của máy này. Bản dùng chung giống dữ liệu đang đồng bộ Firebase.</p>' +
+            '<div class="dv-row"><button class="dv-btn dv-pri" onclick="DEV.exportShared()">Xuất dữ liệu dùng chung</button><button class="dv-btn" onclick="DEV.exportFull()">Xuất đầy đủ (toàn bộ state)</button></div></div>' +
+            '<div class="dv-card"><h4>Nhập JSON</h4>' +
+            '<div class="dv-radio"><label><input type="radio" name="dv-mode" value="replace" checked> Thay thế toàn bộ</label><label><input type="radio" name="dv-mode" value="merge"> Gộp (ghi đè mục trùng)</label></div>' +
+            '<input type="file" id="dv-file" accept=".json,application/json" class="dv-input" style="padding:8px">' +
+            '<button class="dv-btn dv-pri dv-block" onclick="DEV.importFile()">Nhập từ file</button>' +
+            '<div class="dv-note">Nhập xong dữ liệu được lưu và đẩy lên Firebase, mọi người đều thấy. Nên xuất một bản trước khi nhập.</div></div>' +
+            '<div class="dv-card"><h4>Sửa JSON trực tiếp</h4><p>Sửa dữ liệu dùng chung dưới dạng văn bản. Sai cú pháp sẽ không được áp dụng.</p>' +
+            '<button class="dv-btn" onclick="DEV.loadEditor()">Mở trình sửa</button>' +
+            '<textarea class="dv-ta" id="dv-editor" style="display:none;margin-top:10px" spellcheck="false"></textarea>' +
+            '<button class="dv-btn dv-red dv-block" id="dv-apply" style="display:none" onclick="DEV.applyEditor()">Áp dụng thay đổi</button></div>';
+    }
+    function applyImported(obj, mode) {
+        var clean = JSON.parse(JSON.stringify(obj));
+        LOCAL_ONLY_KEYS.forEach(function (k) { delete clean[k]; });
+        var keep = {}; LOCAL_ONLY_KEYS.forEach(function (k) { if (k in state) keep[k] = state[k]; });
+        state = mode === 'merge' ? Object.assign({}, state, clean) : Object.assign({}, clean, keep);
+        applyStateDefaults(); saveData(); renderLayout();
+    }
+    function importFile() {
+        var f = $('dv-file') && $('dv-file').files[0];
+        if (!f) return toast('Chưa chọn file!', 'error');
+        var mode = (document.querySelector('input[name="dv-mode"]:checked') || {}).value || 'replace';
+        var r = new FileReader();
+        r.onload = function (ev) {
+            var obj;
+            try { obj = JSON.parse(ev.target.result); } catch (e) { return toast('File JSON không hợp lệ!', 'error'); }
+            if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return toast('Cấu trúc file không đúng!', 'error');
+            var n = (obj.students || []).length;
+            if (!confirm((mode === 'replace' ? 'THAY THẾ toàn bộ dữ liệu' : 'GỘP dữ liệu') + ' bằng file này (' + n + ' học sinh)?\nDữ liệu sẽ được đẩy lên mạng.')) return;
+            try { applyImported(obj, mode); toast('Đã nhập dữ liệu!'); renderTab(); } catch (e) { console.error(e); toast('Lỗi khi nhập: ' + e.message, 'error'); }
+        };
+        r.readAsText(f);
+    }
+    function loadEditor() {
+        var ta = $('dv-editor'); ta.style.display = 'block'; $('dv-apply').style.display = 'block';
+        ta.value = JSON.stringify(getSharedState(), null, 2);
+    }
+    function applyEditor() {
+        var obj; try { obj = JSON.parse($('dv-editor').value); } catch (e) { return toast('JSON sai cú pháp: ' + e.message, 'error'); }
+        if (!confirm('Áp dụng nội dung đã sửa cho TOÀN BỘ dữ liệu dùng chung?')) return;
+        try { applyImported(obj, 'replace'); toast('Đã áp dụng!'); } catch (e) { toast('Lỗi: ' + e.message, 'error'); }
+    }
+
+    // ---------- File app ----------
+    function tabApp() {
+        return '<div class="dv-card"><h4>Tải file .html của ứng dụng</h4><p>Tải về đúng file đang chạy (index.html) để lưu trữ hoặc đưa lên nơi khác. File chỉ chứa giao diện + mã, không kèm dữ liệu lớp (dữ liệu nằm trên Firebase).</p>' +
+            '<div class="dv-row"><button class="dv-btn dv-pri" onclick="DEV.downloadApp()">Tải index.html</button></div>' +
+            '<div class="dv-pre" id="dv-app-status">Sẵn sàng.</div></div>' +
+            '<div class="dv-card"><h4>Tải trọn gói</h4><p>Tải cả file app và bản sao lưu dữ liệu dùng chung cùng lúc.</p>' +
+            '<button class="dv-btn" onclick="DEV.downloadApp(); setTimeout(DEV.exportShared, 900)">Tải app + dữ liệu</button></div>';
+    }
+    function cleanCloudflare(html) {
+        return html.replace(/<script>\(function\(\)\{function c\(\)\{var b=a\.contentDocument[\s\S]*?<\/script>/g, '');
+    }
+    async function getAppSource() {
+        try {
+            var r = await fetch(location.href.split('#')[0], { cache: 'no-store' });
+            if (r.ok) {
+                var t = await r.text();
+                if (/<html/i.test(t) && t.indexOf('applyStateDefaults') !== -1) return { html: cleanCloudflare(t), how: 'Lấy nguyên bản từ máy chủ' };
+            }
+        } catch (e) {}
+        // Mở trực tiếp từ file: không đọc được nguồn gốc -> dựng lại từ trang đang chạy
+        var clone = document.documentElement.cloneNode(true);
+        clone.classList.remove('dark');
+        clone.querySelectorAll('head > style:not([data-keep])').forEach(function (n) { n.remove(); });
+        clone.querySelectorAll('head > link[rel="stylesheet"]').forEach(function (n) { n.remove(); });
+        ['app', 'toast-container', 'timer-drawer-container'].forEach(function (id) { var n = clone.querySelector('#' + id); if (n) n.innerHTML = ''; });
+        clone.querySelectorAll('#dev-login,#dev-panel,#dev-chip,#mobile-menu').forEach(function (n) { n.remove(); });
+        var body = clone.querySelector('body'); if (body) body.removeAttribute('style');
+        return { html: cleanCloudflare('<!DOCTYPE html>\n' + clone.outerHTML), how: 'Dựng lại từ trang đang chạy (do mở trực tiếp từ file nên không đọc được nguồn gốc)' };
+    }
+    async function downloadApp() {
+        var out = $('dv-app-status'); if (out) out.textContent = 'Đang chuẩn bị file...';
+        try {
+            var res = await getAppSource();
+            download('index.html', res.html, 'text/html');
+            if (out) out.textContent = 'Đã tải index.html (' + (res.html.length / 1024).toFixed(0) + ' KB)\nCách lấy: ' + res.how;
+        } catch (e) { if (out) out.textContent = 'Lỗi: ' + e.message; toast('Không tải được file app', 'error'); }
+    }
+
+    // ---------- Firebase ----------
+    function tabFirebase() {
+        return '<div class="dv-card"><h4>Trạng thái</h4>' + kv('Kết nối', '<span id="dv-fb-state">' + esc(fbText()) + '</span>') + kv('Nút dữ liệu', 'lop11D/data') + '</div>' +
+            '<div class="dv-card"><h4>Đồng bộ thủ công</h4>' +
+            '<p><b>Đẩy lên:</b> ghi đè dữ liệu trên mạng bằng dữ liệu của máy này.<br><b>Kéo về:</b> ghi đè dữ liệu máy này bằng dữ liệu trên mạng.</p>' +
+            '<div class="dv-row"><button class="dv-btn dv-red" onclick="DEV.fbPush()">Đẩy lên mạng</button><button class="dv-btn dv-red" onclick="DEV.fbPull()">Kéo về máy</button><button class="dv-btn" onclick="DEV.fbSize()">Xem kích thước trên mạng</button></div>' +
+            '<div class="dv-pre" id="dv-fb-out">—</div></div>';
+    }
+    function fbPush() {
+        if (typeof dbRef === 'undefined' || !dbRef) return toast('Không có kết nối Firebase!', 'error');
+        if (!confirm('GHI ĐÈ dữ liệu trên mạng bằng dữ liệu của máy này?')) return;
+        dbRef.set({ json: JSON.stringify(getSharedState()), updatedAt: Date.now() }).then(function () { isDataLoaded = true; $('dv-fb-out').textContent = 'Đã đẩy lúc ' + new Date().toLocaleTimeString(); toast('Đã đẩy dữ liệu lên mạng'); })
+            .catch(function (e) { $('dv-fb-out').textContent = 'Lỗi: ' + e.message; toast('Đẩy thất bại', 'error'); });
+    }
+    function fbPull() {
+        if (typeof dbRef === 'undefined' || !dbRef) return toast('Không có kết nối Firebase!', 'error');
+        if (!confirm('GHI ĐÈ dữ liệu máy này bằng dữ liệu trên mạng?')) return;
+        dbRef.once('value').then(function (snap) {
+            var v = snap.val(); if (!v || !v.json) return ($('dv-fb-out').textContent = 'Trên mạng chưa có dữ liệu.');
+            var obj = JSON.parse(v.json);
+            var keep = {}; LOCAL_ONLY_KEYS.forEach(function (k) { if (k in state) keep[k] = state[k]; });
+            state = Object.assign({}, obj, keep); applyStateDefaults();
+            try { localStorage.setItem('classManagerData', JSON.stringify(state)); } catch (e) {}
+            renderLayout(); $('dv-fb-out').textContent = 'Đã kéo ' + (obj.students || []).length + ' học sinh lúc ' + new Date().toLocaleTimeString(); toast('Đã kéo dữ liệu về');
+        }).catch(function (e) { $('dv-fb-out').textContent = 'Lỗi: ' + e.message; });
+    }
+    function fbSize() {
+        if (typeof dbRef === 'undefined' || !dbRef) return toast('Không có kết nối Firebase!', 'error');
+        dbRef.once('value').then(function (snap) {
+            var v = snap.val(); if (!v || !v.json) return ($('dv-fb-out').textContent = 'Trên mạng chưa có dữ liệu.');
+            var o = JSON.parse(v.json);
+            $('dv-fb-out').textContent = 'Kích thước: ' + (v.json.length / 1024).toFixed(1) + ' KB\nHọc sinh: ' + (o.students || []).length + '\nCập nhật lần cuối: ' + (v.updatedAt ? new Date(v.updatedAt).toLocaleString() : '?');
+        }).catch(function (e) { $('dv-fb-out').textContent = 'Lỗi: ' + e.message; });
+    }
+
+    // ---------- Vai trò ----------
+    function tabRole() {
+        var cur = state.auth && state.auth.loggedIn ? state.auth.role : '(chưa đăng nhập)';
+        return '<div class="dv-card"><h4>Vào nhanh với vai trò</h4><p>Dùng để kiểm tra giao diện từng quyền, không cần mật khẩu. Hiện tại: <b>' + esc(cur) + '</b></p>' +
+            '<div class="dv-row"><button class="dv-btn" onclick="DEV.asRole(\'gvcn\')">GVCN</button><button class="dv-btn" onclick="DEV.asRole(\'bcs\')">BCS</button><button class="dv-btn" onclick="DEV.asRole(\'bgh\')">BGH</button><button class="dv-btn dv-red" onclick="DEV.asRole(null)">Đăng xuất</button></div>' +
+            '<div class="dv-note">Việc đổi vai trò chỉ áp dụng trên máy này, không ảnh hưởng người khác.</div></div>';
+    }
+    function asRole(r) {
+        if (r) { state.auth = { loggedIn: true, role: r }; state.currentTab = 'tong-quan'; }
+        else { state.auth = { loggedIn: false, role: null }; }
+        try { localStorage.setItem('classManagerData', JSON.stringify(state)); } catch (e) {}
+        renderLayout(); renderTab(); toast(r ? 'Đã vào với vai trò ' + r.toUpperCase() : 'Đã đăng xuất');
+    }
+
+    // ---------- Nhật ký lỗi ----------
+    function tabLog() {
+        var logs = window.__devLogs || [];
+        var rows = logs.length ? logs.map(function (l) { return '<div class="dv-log ' + l.k + '"><b>' + new Date(l.t).toLocaleTimeString() + ' [' + l.k + ']</b>\n' + esc(l.m) + '</div>'; }).join('') : '<div class="dv-pre">Chưa ghi nhận lỗi hay cảnh báo nào.</div>';
+        return '<div class="dv-row" style="margin:0 0 10px"><button class="dv-btn" onclick="DEV.tab(\'log\')">Làm mới</button><button class="dv-btn" onclick="DEV.copyLogs()">Sao chép</button><button class="dv-btn dv-red" onclick="DEV.clearLogs()">Xóa</button></div>' + rows;
+    }
+    function copyLogs() {
+        var t = (window.__devLogs || []).map(function (l) { return new Date(l.t).toISOString() + ' [' + l.k + '] ' + l.m; }).join('\n');
+        if (navigator.clipboard) navigator.clipboard.writeText(t).then(function () { toast('Đã sao chép nhật ký'); }, function () { download('devlog.txt', t, 'text/plain'); });
+        else download('devlog.txt', t, 'text/plain');
+    }
+    function clearLogs() { window.__devLogs.length = 0; renderTab(); }
+
+    // ---------- Công cụ ----------
+    function tabTools() {
+        var rows = '';
+        try {
+            for (var i = 0; i < localStorage.length; i++) {
+                var k = localStorage.key(i), v = localStorage.getItem(k) || '';
+                rows += '<div class="dv-kv"><span>' + esc(k) + '</span><span>' + (v.length / 1024).toFixed(1) + ' KB <button class="dv-btn" style="padding:3px 8px;margin-left:6px" onclick="DEV.delKey(\'' + esc(k).replace(/'/g, "\\'") + '\')">Xóa</button></span></div>';
+            }
+        } catch (e) { rows = 'Không đọc được localStorage'; }
+        return '<div class="dv-card"><h4>Giao diện</h4><div class="dv-row"><button class="dv-btn" onclick="setThemePref(\'light\');DEV.tab(\'ct\')">Sáng</button><button class="dv-btn" onclick="setThemePref(\'dark\');DEV.tab(\'ct\')">Tối</button><button class="dv-btn" onclick="setThemePref(\'auto\');DEV.tab(\'ct\')">Theo hệ thống</button></div></div>' +
+            '<div class="dv-card"><h4>Chạy lệnh JavaScript</h4><p>Có thể dùng biến <code>state</code>, hàm <code>renderLayout()</code>, <code>saveData()</code>...</p>' +
+            '<textarea class="dv-ta" id="dv-js" style="min-height:90px" spellcheck="false" placeholder="state.students.length"></textarea>' +
+            '<button class="dv-btn dv-pri dv-block" onclick="DEV.runJs()">Chạy</button><div class="dv-pre" id="dv-js-out">—</div></div>' +
+            '<div class="dv-card"><h4>Bộ nhớ trên máy (localStorage)</h4>' + rows +
+            '<div class="dv-row"><button class="dv-btn dv-red" onclick="DEV.clearCache()">Xóa dữ liệu đệm trên máy này</button></div>' +
+            '<div class="dv-note">Xóa dữ liệu đệm không xóa dữ liệu trên Firebase. Trang sẽ tải lại và lấy dữ liệu từ mạng.</div></div>' +
+            '<div class="dv-card"><h4>Khác</h4><div class="dv-row"><button class="dv-btn" onclick="DEV.toggleOutline()">Bật/tắt viền gỡ lỗi bố cục</button><button class="dv-btn" onclick="showToast(\'Thông báo thử\',\'success\')">Thử thông báo</button><button class="dv-btn" onclick="location.reload()">Tải lại trang</button></div></div>';
+    }
+    function runJs() {
+        var code = $('dv-js').value, out;
+        try {
+            var r;
+            try { r = (new Function('return (' + code + '\n)'))(); }
+            catch (e1) {
+                if (!(e1 instanceof SyntaxError)) throw e1;
+                // Nhiều câu lệnh: chạy hết, nếu câu cuối là biểu thức thì trả về giá trị của nó
+                var t = code.trim().replace(/;+\s*$/, ''), idx = t.lastIndexOf(';');
+                try { r = (new Function(idx >= 0 ? t.slice(0, idx + 1) + '\nreturn (' + t.slice(idx + 1) + '\n);' : 'return (' + t + '\n);'))(); }
+                catch (e2) { r = (new Function(code))(); }
+            }
+            out = (r !== null && typeof r === 'object') ? JSON.stringify(r, null, 2) : String(r);
+        } catch (e) { out = 'Lỗi: ' + e.message; }
+        $('dv-js-out').textContent = out;
+    }
+    function delKey(k) { if (!confirm('Xóa khóa "' + k + '" khỏi bộ nhớ máy này?')) return; try { localStorage.removeItem(k); } catch (e) {} renderTab(); }
+    function clearCache() {
+        if (!confirm('Xóa dữ liệu đệm trên máy này và tải lại trang?\n(Dữ liệu trên Firebase vẫn còn)')) return;
+        try { localStorage.removeItem('classManagerData'); } catch (e) {}
+        location.reload();
+    }
+    var outlineStyle = null;
+    function toggleOutline() {
+        if (outlineStyle) { outlineStyle.remove(); outlineStyle = null; return; }
+        outlineStyle = document.createElement('style'); outlineStyle.textContent = '#app *{outline:1px solid rgba(255,0,0,.35)!important}';
+        document.head.appendChild(outlineStyle);
+    }
+
+    window.DEV = {
+        submit: submit, closeLogin: closeLogin, open: openPanel, close: closePanel, lock: lock, tab: setTab,
+        exportShared: function () { download('DEV_DuLieuDungChung_' + today() + '.json', JSON.stringify(getSharedState(), null, 2)); },
+        exportFull: function () { download('DEV_Full_' + today() + '.json', JSON.stringify(state, null, 2)); },
+        importFile: importFile, loadEditor: loadEditor, applyEditor: applyEditor,
+        downloadApp: downloadApp, fbPush: fbPush, fbPull: fbPull, fbSize: fbSize, asRole: asRole,
+        copyLogs: copyLogs, clearLogs: clearLogs, runJs: runJs, delKey: delKey, clearCache: clearCache, toggleOutline: toggleOutline
+    };
+    if (isUnlocked()) showChip();
+})();
+
+</script>
+</body>
 </html>
