@@ -509,6 +509,25 @@ html.dark .quick-score-panel { background: #111a2b; border-color: #2a3a58; }
 html.dark .quick-score-panel select { background: #182234; border-color: #33445f; color: #e2e8f0; }
 html.dark .quick-score-panel .text-slate-800 { color: #f1f5f9; }
 html.dark .quick-score-panel .text-slate-500 { color: #94a3b8; }
+html.dark .student-search-sticky { background: transparent !important; }
+html.dark .student-search-inner { background: transparent; }
+.student-filter-popover-inner { color: #334155; }
+html.dark .student-filter-popover-inner { background: #111a2b; border-color: #33445f; color: #e2e8f0; box-shadow: 0 18px 44px rgba(0,0,0,.42); }
+html.dark .student-filter-toggle { color: #cbd5e1; }
+html.dark .student-filter-toggle:hover { background: rgba(148,163,184,.14); }
+html.dark .student-filter-popover .bg-slate-100 { background-color: #182234; }
+html.dark .student-filter-popover .border-slate-200 { border-color: #33445f; }
+html.dark .student-filter-popover .text-slate-500 { color: #cbd5e1; }
+html.dark .student-search-box input { background: #182234 !important; border-color: #33445f !important; color: #f1f5f9 !important; box-shadow: 0 10px 24px rgba(0,0,0,.30), 0 2px 6px rgba(0,0,0,.18); }
+html.dark .student-search-box input:focus { border-color: #818cf8 !important; box-shadow: 0 14px 30px rgba(99,102,241,.22); }
+.student-search-box input { background: #fff !important; border-color: #e2e8f0 !important; box-shadow: 0 10px 24px rgba(15,23,42,.10), 0 2px 6px rgba(15,23,42,.05); }
+.student-search-box input:focus { box-shadow: 0 14px 30px rgba(79,70,229,.16), 0 3px 8px rgba(15,23,42,.06); }
+html.dark .student-view-toggle { background: #111a2b; border-color: #2a3a58; }
+html.dark .student-bulk-checkbox + span { color: #cbd5e1; }
+#student-page { width: 100%; max-width: 100%; min-width: 0; }
+#student-page .student-search-sticky { box-sizing: border-box; }
+#student-page [data-student-card] { min-width: 0; }
+#student-page .student-bulk-checkbox { flex-shrink: 0; }
 html.dark .picker-controls .bg-white { background-color: #182234; }
 html.dark .picker-controls .text-slate-600, html.dark .picker-controls .text-slate-500 { color: #cbd5e1; }
 html.dark .picker-controls .text-emerald-800\/60 { color: #6ee7b7; }
@@ -521,6 +540,22 @@ html.dark .seat-map-panel .bg-slate-50, html.dark .seat-wait-panel .bg-slate-50 
 html.dark .seat-map-panel > .absolute.inset-0 { background-image: linear-gradient(to bottom, rgba(17,26,43,.62), transparent); }
 @media (max-width: 1023px) {
   #main-content { min-width: 0; padding-left: 14px; padding-right: 14px; }
+  #student-page { overflow-x: clip; }
+  #student-page #hs-search-input { font-size: 16px !important; } /* Prevent iOS focus zoom and sideways panning */
+  #student-page .student-search-sticky { max-width: 100vw; }
+  #student-page .hs-chip { max-width: 100%; }
+  #student-page[data-student-view="list"] .student-cards-grid { display: flex !important; flex-direction: column; gap: 8px !important; }
+  #student-page[data-student-view="list"] [data-student-card] { display: flex; flex-direction: row; align-items: center; gap: 8px; min-height: 66px; padding: 9px 10px; border-radius: 16px; border-top-width: 1px; border-left-width: 4px; transform: none !important; }
+  #student-page[data-student-view="list"] .student-list-row { display: flex !important; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+  #student-page[data-student-view="list"] .student-card-detail { display: none !important; }
+  #student-page[data-student-view="list"] .student-card-menu { position: static; flex: 0 0 auto; order: 4; }
+  #student-page[data-student-view="list"] .student-card-menu > button { color: #94a3b8; }
+  #student-page[data-student-view="list"] [data-student-card] > label { position: static !important; transform: none !important; padding: 0; background: transparent; border: 0; box-shadow: none; }
+  #student-page[data-student-view="list"] [data-student-card] > label span { display: none; }
+  #student-page[data-student-view="list"] .student-list-row img { object-fit: cover; }
+  #student-page[data-student-view="list"] .student-list-points { min-width: 38px; }
+  #student-page[data-student-view="list"] .student-list-minus, #student-page[data-student-view="list"] .student-list-plus { width: 34px; height: 34px; }
+  #student-page[data-student-view="list"] .student-list-meta { max-width: 42vw; }
   .picker-layout { height: auto !important; }
   .picker-controls { overflow: visible; border-radius: 24px; }
   .picker-stage { flex: none; width: 100%; min-height: max(280px, 38svh); }
@@ -1360,7 +1395,9 @@ function renderHeader() {
           const emptyState = document.getElementById('hs-empty-state');
           if (emptyState) emptyState.classList.toggle('hidden', visibleCount > 0);
           const quickCount = document.getElementById('hs-visible-count');
-          if (quickCount) quickCount.textContent = String(visibleCount);
+          if (quickCount) quickCount.textContent = String(state.studentBulkMode === 'select' ? (state.studentQuickSelectedIds || []).length : visibleCount);
+          const selectedCount = document.getElementById('hs-selected-count');
+          if (selectedCount) selectedCount.textContent = String((state.studentQuickSelectedIds || []).length);
 
           const clearBtn = document.getElementById('hs-clear-search');
           if (clearBtn) clearBtn.classList.toggle('hidden', !(state.studentSearch || ''));
@@ -1407,6 +1444,29 @@ function renderHeader() {
           if (icon) icon.style.transform = state.studentCollapsedGroups[key] ? 'rotate(-90deg)' : 'rotate(0deg)';
       };
 
+      window.toggleStudentFilters = function(event) {
+          if (event) event.stopPropagation();
+          const panel = document.getElementById('hs-filter-popover');
+          const button = document.getElementById('hs-filter-toggle');
+          const icon = document.getElementById('hs-filter-chevron');
+          if (!panel || !button) return;
+          const willOpen = panel.classList.contains('hidden');
+          panel.classList.toggle('hidden', !willOpen);
+          button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+          state.studentFiltersOpen = willOpen;
+          if (icon) icon.classList.toggle('rotate-180', willOpen);
+      };
+
+      window.setStudentMobileView = function(mode) {
+          state.studentMobileView = mode === 'list' ? 'list' : 'cards';
+          const page = document.getElementById('student-page');
+          if (page) page.setAttribute('data-student-view', state.studentMobileView);
+          document.querySelectorAll('[data-student-view-option]').forEach(button => {
+              const active = button.getAttribute('data-student-view-option') === state.studentMobileView;
+              button.className = `px-3 py-2 rounded-lg text-xs font-bold ${active ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`;
+          });
+      };
+
       function renderViewHocSinh() {
         const isBGH = state.auth && state.auth.role === 'bgh';
         if (!state.studentCollapsedGroups) state.studentCollapsedGroups = {};
@@ -1426,6 +1486,8 @@ function renderHeader() {
             }
 
             const currentPoints = s.points || 0;
+            const quickPositive = state.criteria.positive[0];
+            const quickNegative = state.criteria.negative[0];
 
             let actionAreaHtml = '';
             if (isBGH) {
@@ -1450,8 +1512,6 @@ function renderHeader() {
                     </button>
                 `).join('');
 
-                const quickPositive = state.criteria.positive[0];
-                const quickNegative = state.criteria.negative[0];
                 actionAreaHtml = `
                     <div class="w-full mb-5 px-3 space-y-2">
                         <div class="grid grid-cols-2 gap-2">
@@ -1483,7 +1543,8 @@ function renderHeader() {
             <div data-student-card data-student-id="${s.id}" data-group="${escapeHtmlAttr(s.group || '')}" data-search="${escapeHtmlAttr(searchIndex)}"
                  class="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200 border-t-4 border-t-${borderColorClass.replace('border-', '')} flex flex-col items-center relative hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
 
-                <div class="absolute top-4 right-4 z-20">
+                ${!isBGH && state.studentBulkMode === 'select' ? `<label class="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-2 py-1.5 rounded-xl bg-slate-50 border border-slate-200 shadow-sm text-xs font-bold text-slate-600" onclick="event.stopPropagation()"><input type="checkbox" class="student-bulk-checkbox w-5 h-5 accent-emerald-600" value="${s.id}" ${((state.studentQuickSelectedIds || []).map(String).includes(String(s.id))) ? 'checked' : ''} onchange="toggleQuickStudent(${s.id}, this.checked)"><span>Chọn</span></label>` : ''}
+                <div class="student-card-menu absolute top-4 right-4 z-20">
                     <button onclick="toggleStudentMenu(event, ${s.id})" class="text-slate-300 hover:text-slate-600 p-1 rounded-full focus:outline-none transition-colors"><i class="ph-bold ph-dots-three-vertical text-xl"></i></button>
                     <div id="student-menu-${s.id}" class="student-dropdown hidden absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-slate-100 overflow-hidden z-30 p-2 animate-fade-in">
                         <button onclick="openStudentHistoryModal(${s.id})" class="w-full text-left px-3 py-2.5 text-sm text-emerald-600 hover:bg-slate-50 rounded-lg font-bold flex items-center gap-2.5"><i class="ph-bold ph-clock-counter-clockwise text-lg"></i> Lịch sử</button>
@@ -1491,6 +1552,18 @@ function renderHeader() {
                     </div>
                 </div>
 
+                <div class="student-list-row hidden">
+                    ${getAvatarImg(s.avatarUrl, s.name, "w-10 h-10 shrink-0 ring-2 ring-slate-100")}
+                    <div class="student-list-meta min-w-0 flex-1 ${isBGH ? '' : 'cursor-pointer'}" ${isBGH ? '' : `onclick="openEditStudentModal(${s.id})"`}>
+                        <div class="font-black text-slate-800 text-sm leading-tight truncate">${s.name}</div>
+                        <div class="text-[10px] font-bold text-slate-500 truncate">${s.group || 'Chưa nhóm'}${s.role ? ' · ' + s.role : ''}</div>
+                    </div>
+                    <div class="student-list-points shrink-0 text-center px-1"><div class="text-[9px] text-slate-400 font-bold">ĐIỂM</div><div class="font-black text-[#1e1b4b]">${currentPoints}</div></div>
+                    ${!isBGH && quickNegative ? `<button onclick="event.stopPropagation(); executeQuickPoint(${s.id},${quickNegative.points}, '${escapeInlineJs(quickNegative.reason)}', '${escapeInlineJs(quickNegative.category)}', 'subtract')" title="${escapeHtmlAttr(quickNegative.reason)}: trừ ${quickNegative.points}" aria-label="Trừ điểm ${s.name}" class="student-list-minus shrink-0 w-9 h-9 rounded-xl bg-red-50 text-red-600 border border-red-100 flex items-center justify-center"><i class="ph-bold ph-minus"></i></button>` : ''}
+                    ${!isBGH && quickPositive ? `<button onclick="event.stopPropagation(); executeQuickPoint(${s.id},${quickPositive.points}, '${escapeInlineJs(quickPositive.reason)}', '${escapeInlineJs(quickPositive.category)}', 'add')" title="${escapeHtmlAttr(quickPositive.reason)}: cộng ${quickPositive.points}" aria-label="Cộng điểm ${s.name}" class="student-list-plus shrink-0 w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center"><i class="ph-bold ph-plus"></i></button>` : ''}
+                </div>
+
+                <div class="student-card-detail flex flex-col items-center w-full">
                 ${getAvatarImg(s.avatarUrl, s.name, "w-24 h-24 mb-4 mt-2 ring-4 ring-slate-50 shadow-md")}
                 <div class="font-black text-slate-800 text-xl mb-2 truncate w-full text-center">${s.name}</div>
                 <div class="flex flex-wrap items-center justify-center gap-2 mb-2">
@@ -1504,6 +1577,7 @@ function renderHeader() {
                 <button ${isBGH ? '' : `onclick="openEditStudentModal(${s.id})"`} class="w-full py-3 bg-slate-50 text-slate-600 font-bold rounded-xl text-xs flex items-center justify-center gap-2 border border-slate-200 mt-auto ${isBGH ? 'cursor-not-allowed opacity-70' : 'hover:bg-slate-100 transition-colors'}">
                     <i class="ph-bold ${isBGH ? 'ph-eye' : 'ph-identification-card'} text-sm"></i> ${isBGH ? 'CHỈ XEM HỒ SƠ' : 'XEM HỒ SƠ'}
                 </button>
+                </div>
             </div>
             `;
         };
@@ -1586,14 +1660,14 @@ function renderHeader() {
                 <div id="hs-group-body-${b.key}" class="${isCollapsed ? 'hidden' : ''}">
                     ${b.students.length === 0
                         ? `<div class="text-xs text-slate-400 font-medium italic text-center py-8 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">Tổ này chưa có thành viên nào</div>`
-                        : `<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 xl:gap-8">${b.students.map(renderStudentCard).join('')}</div>`}
+                        : `<div class="student-cards-grid grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 xl:gap-8">${b.students.map(renderStudentCard).join('')}</div>`}
                 </div>
             </section>
             `;
         }).join('');
 
         return `
-            <div class="max-w-7xl mx-auto animate-fade-in space-y-6 pb-12" onclick="closeAllStudentMenus()">
+            <div id="student-page" data-student-view="${state.studentMobileView === 'list' ? 'list' : 'cards'}" class="max-w-7xl mx-auto animate-fade-in space-y-6 pb-12 min-w-0" onclick="closeAllStudentMenus()">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center py-2 border-b border-slate-200 pb-6 gap-4">
                   <div>
                         <h2 class="text-2xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
@@ -1612,20 +1686,29 @@ function renderHeader() {
                 </div>
 
                 <!-- THANH TÌM KIẾM + LỌC TỔ -->
-                <div class="sticky top-0 z-30 -mx-4 md:mx-0 px-4 md:px-0 py-3 bg-[#f8fafc]/95 backdrop-blur-sm">
-                    <div class="bg-white rounded-[1.6rem] border border-slate-200 shadow-sm p-4 md:p-5 space-y-3">
-                        <div class="flex flex-col md:flex-row md:items-center gap-3">
-                            <div class="relative w-full">
-                                <i class="ph-bold ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
-                                <input id="hs-search-input" type="text" value="${escapeHtmlAttr(state.studentSearch || '')}"
-                                       oninput="searchStudents(this.value)"
-                                       placeholder="Tìm theo tên, mã tra cứu, chức vụ hoặc tổ..."
-                                       class="w-full pl-12 pr-12 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 placeholder:font-medium placeholder:text-slate-400 outline-none focus:bg-white focus:border-[#1e1b4b] focus:ring-4 focus:ring-indigo-50 transition-all">
-                                <button id="hs-clear-search" onclick="clearStudentSearch()" class="hidden absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-200 text-slate-600 hover:bg-slate-300 flex items-center justify-center transition-colors"><i class="ph-bold ph-x text-sm"></i></button>
+                <div class="student-search-sticky sticky top-0 z-30 -mx-4 md:mx-0 px-4 md:px-0 py-2">
+                    <div class="student-search-inner">
+                        <div class="student-search-box relative w-full">
+                            <i class="ph-bold ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg pointer-events-none"></i>
+                            <input id="hs-search-input" type="text" value="${escapeHtmlAttr(state.studentSearch || '')}"
+                                   oninput="searchStudents(this.value)"
+                                   placeholder="Tìm theo tên, mã tra cứu, chức vụ hoặc tổ..."
+                                   class="w-full pl-12 pr-24 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-base sm:text-sm font-bold text-slate-800 placeholder:font-medium placeholder:text-slate-400 outline-none focus:bg-white focus:border-[#1e1b4b] focus:ring-4 focus:ring-indigo-50 transition-all">
+                            <button id="hs-clear-search" onclick="clearStudentSearch(); event.stopPropagation();" class="${state.studentSearch ? '' : 'hidden'} absolute right-12 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-slate-200 text-slate-600 hover:bg-slate-300 flex items-center justify-center transition-colors" aria-label="Xóa nội dung tìm kiếm"><i class="ph-bold ph-x text-sm"></i></button>
+                            <button id="hs-filter-toggle" onclick="toggleStudentFilters(event)" class="student-filter-toggle absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl text-slate-500 hover:bg-slate-100 flex items-center justify-center transition-all" aria-label="Mở bộ lọc" aria-expanded="${state.studentFiltersOpen ? 'true' : 'false'}" aria-controls="hs-filter-popover"><i id="hs-filter-chevron" class="ph-bold ph-caret-down transition-transform ${state.studentFiltersOpen ? 'rotate-180' : ''}"></i></button>
+                            <div id="hs-filter-popover" class="student-filter-popover absolute top-full left-0 right-0 mt-2 z-40 ${state.studentFiltersOpen ? '' : 'hidden'}">
+                                <div class="student-filter-popover-inner rounded-2xl border border-slate-200 bg-white p-3 md:p-4 shadow-[0_16px_40px_rgba(15,23,42,.18)] space-y-3">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div id="hs-result-info" class="text-[11px] font-bold text-slate-400 whitespace-nowrap ${(state.studentSearch || state.studentGroupFilter !== 'all') ? '' : 'hidden'}"></div>
+                                        <div class="student-view-toggle lg:hidden ml-auto flex items-center gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200" aria-label="Kiểu hiển thị học sinh">
+                                            <button data-student-view-option="cards" onclick="setStudentMobileView('cards')" class="px-3 py-2 rounded-lg text-xs font-bold ${state.studentMobileView === 'list' ? 'text-slate-500' : 'bg-white text-slate-800 shadow-sm'}"><i class="ph-bold ph-squares-four mr-1"></i>Thẻ</button>
+                                            <button data-student-view-option="list" onclick="setStudentMobileView('list')" class="px-3 py-2 rounded-lg text-xs font-bold ${state.studentMobileView === 'list' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}"><i class="ph-bold ph-list-bullets mr-1"></i>Danh sách</button>
+                                        </div>
+                                    </div>
+                                    <div class="student-filter-chips flex flex-wrap items-center gap-2">${chipsHtml}</div>
+                                </div>
                             </div>
-                            <div id="hs-result-info" class="text-[11px] font-bold text-slate-400 whitespace-nowrap md:text-right ${(state.studentSearch || state.studentGroupFilter !== 'all') ? '' : 'hidden'}"></div>
                         </div>
-                        <div class="flex flex-wrap items-center gap-2">${chipsHtml}</div>
                     </div>
                 </div>
 
@@ -1635,9 +1718,14 @@ function renderHeader() {
                         <span class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center"><i class="ph-bold ph-lightning text-lg"></i></span>
                         <div class="min-w-0"><div class="font-black text-slate-800">Chấm nhanh</div><div class="text-[11px] text-slate-500">Chọn mẫu một lần, áp dụng theo bộ lọc tìm kiếm hoặc tổ.</div></div>
                     </div>
+                    <div class="flex flex-wrap gap-2 mb-2" role="group" aria-label="Phạm vi áp dụng">
+                        <button onclick="setStudentBulkMode('all')" class="px-3 py-2 rounded-xl border text-xs font-bold transition-colors ${state.studentBulkMode !== 'select' ? 'bg-emerald-700 text-white border-emerald-700' : 'bg-white text-slate-600 border-slate-200'}"><i class="ph-bold ph-users-three mr-1"></i>Tất cả phù hợp</button>
+                        <button onclick="setStudentBulkMode('select')" class="px-3 py-2 rounded-xl border text-xs font-bold transition-colors ${state.studentBulkMode === 'select' ? 'bg-emerald-700 text-white border-emerald-700' : 'bg-white text-slate-600 border-slate-200'}"><i class="ph-bold ph-check-square-offset mr-1"></i>Chọn nhiều học sinh <span class="opacity-80">(<b id="hs-selected-count">${(state.studentQuickSelectedIds || []).length}</b>)</span></button>
+                        ${state.studentBulkMode === 'select' ? `<button onclick="selectAllMatchingStudents()" class="px-3 py-2 rounded-xl border border-emerald-200 bg-white text-emerald-700 text-xs font-bold"><i class="ph-bold ph-checks mr-1"></i>Chọn tất cả phù hợp</button><button onclick="clearQuickStudentSelection()" class="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-500 text-xs font-bold">Bỏ chọn</button>` : ''}
+                    </div>
                     <div class="flex flex-col sm:flex-row gap-2">
                         <select id="hs-quick-criterion" onchange="state.studentQuickCriterion=this.value" class="flex-1 min-w-0 px-3 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-300">${quickCriterionOptionsHtml}</select>
-                        <button onclick="applyQuickPointToVisible()" class="w-full sm:w-auto px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[.98] text-white font-black text-sm flex items-center justify-center gap-2 shadow-md transition-all"><i class="ph-bold ph-check-circle text-lg"></i><span>Áp dụng cho <b id="hs-visible-count">${state.students.length}</b> HS phù hợp</span></button>
+                        <button onclick="applyQuickPointToVisible()" class="w-full sm:w-auto px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[.98] text-white font-black text-sm flex items-center justify-center gap-2 shadow-md transition-all"><i class="ph-bold ph-check-circle text-lg"></i><span>Áp dụng cho <b id="hs-visible-count">${state.studentBulkMode === 'select' ? (state.studentQuickSelectedIds || []).length : state.students.length}</b> HS ${state.studentBulkMode === 'select' ? 'đã chọn' : 'phù hợp'}</span></button>
                     </div>
                 </section>` : ''}
 
@@ -1654,6 +1742,43 @@ function renderHeader() {
             </div>
         `;
       }
+        window.setStudentBulkMode = function(mode) {
+            state.studentBulkMode = mode === 'select' ? 'select' : 'all';
+            renderLayout();
+        };
+        window.toggleQuickStudent = function(id, checked) {
+            const ids = new Set((state.studentQuickSelectedIds || []).map(String));
+            if (checked) ids.add(String(id)); else ids.delete(String(id));
+            state.studentQuickSelectedIds = Array.from(ids);
+            const count = document.getElementById('hs-selected-count');
+            if (count) count.textContent = String(ids.size);
+            if (state.studentBulkMode === 'select') {
+                const applyCount = document.getElementById('hs-visible-count');
+                if (applyCount) applyCount.textContent = String(ids.size);
+            }
+        };
+        window.selectAllMatchingStudents = function() {
+            const ids = new Set();
+            document.querySelectorAll('[data-student-card]').forEach(card => {
+                if (card.style.display !== 'none') ids.add(String(card.getAttribute('data-student-id')));
+            });
+            state.studentQuickSelectedIds = Array.from(ids);
+            document.querySelectorAll('.student-bulk-checkbox').forEach(box => {
+                const card = box.closest('[data-student-card]');
+                box.checked = !!card && card.style.display !== 'none';
+            });
+            const count = document.getElementById('hs-selected-count');
+            if (count) count.textContent = String(ids.size);
+            const applyCount = document.getElementById('hs-visible-count');
+            if (applyCount) applyCount.textContent = String(ids.size);
+        };
+        window.clearQuickStudentSelection = function() {
+            state.studentQuickSelectedIds = [];
+            document.querySelectorAll('.student-bulk-checkbox').forEach(box => { box.checked = false; });
+            const count = document.getElementById('hs-selected-count'); if (count) count.textContent = '0';
+            const applyCount = document.getElementById('hs-visible-count'); if (applyCount) applyCount.textContent = '0';
+        };
+
         window.applyQuickPointToVisible = function() {
             const select = document.getElementById('hs-quick-criterion');
             const key = select ? select.value : (state.studentQuickCriterion || 'add:0');
@@ -1662,14 +1787,20 @@ function renderHeader() {
             const list = type === 'subtract' ? state.criteria.negative : state.criteria.positive;
             const criterion = list[Number(indexText)];
             if (!criterion) return showToast('Chưa có mẫu điểm phù hợp.', 'error');
-            const cards = Array.from(document.querySelectorAll('[data-student-card]'))
-                .filter(card => card.style.display !== 'none' && card.offsetParent !== null);
-            const students = cards.map(card => state.students.find(s => String(s.id) === card.getAttribute('data-student-id'))).filter(Boolean);
-            if (!students.length) return showToast('Không có học sinh nào đang hiển thị.', 'error');
+            let students;
+            if (state.studentBulkMode === 'select') {
+                const ids = new Set((state.studentQuickSelectedIds || []).map(String));
+                students = state.students.filter(s => ids.has(String(s.id)));
+            } else {
+                const cards = Array.from(document.querySelectorAll('[data-student-card]'))
+                    .filter(card => card.style.display !== 'none');
+                students = cards.map(card => state.students.find(s => String(s.id) === card.getAttribute('data-student-id'))).filter(Boolean);
+            }
+            if (!students.length) return showToast(state.studentBulkMode === 'select' ? 'Hãy chọn ít nhất một học sinh.' : 'Không có học sinh nào phù hợp bộ lọc.', 'error');
             const sign = type === 'subtract' ? -1 : 1;
             const amount = sign * Number(criterion.points);
             const action = type === 'subtract' ? 'trừ' : 'cộng';
-            const scope = (state.studentSearch || state.studentGroupFilter !== 'all') ? 'theo bộ lọc hiện tại' : 'toàn bộ danh sách';
+            const scope = state.studentBulkMode === 'select' ? 'đã chọn' : ((state.studentSearch || state.studentGroupFilter !== 'all') ? 'theo bộ lọc hiện tại' : 'toàn bộ danh sách');
             const ok = confirm(`Xác nhận ${action} ${criterion.points} điểm cho ${students.length} học sinh ${scope}?\nLý do: ${criterion.reason} (${criterion.category})`);
             if (!ok) return;
             const actorName = (state.auth && state.auth.role === 'bcs') ? 'Ban Cán Sự' : 'GVCN';
@@ -9750,5 +9881,5 @@ window.deleteHistoryRecord = function(studentId, recordId) {
 })();
 
 </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a574016efb4add3e',t:'MTc5NDEzNDkwOQ=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a574016efb4add3e',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
