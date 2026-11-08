@@ -502,7 +502,13 @@ html.dark .border-lime-300{border-color:rgba(132,204,22,0.42)}
 <style data-keep="1">
 /* Mobile layout and smooth, compositor-friendly view transitions */
 #main-content { overscroll-behavior-y: contain; }
+/* Các view được render lại không chạy thêm fade-in cũ gây nháy chồng lên chuyển cảnh iOS. */
+#main-content .animate-fade-in { animation: none !important; }
 html.dark .picker-controls { background: rgba(17,26,43,.94); border-color: #2a3a58; color: #e2e8f0; }
+html.dark .quick-score-panel { background: #111a2b; border-color: #2a3a58; }
+html.dark .quick-score-panel select { background: #182234; border-color: #33445f; color: #e2e8f0; }
+html.dark .quick-score-panel .text-slate-800 { color: #f1f5f9; }
+html.dark .quick-score-panel .text-slate-500 { color: #94a3b8; }
 html.dark .picker-controls .bg-white { background-color: #182234; }
 html.dark .picker-controls .text-slate-600, html.dark .picker-controls .text-slate-500 { color: #cbd5e1; }
 html.dark .picker-controls .text-emerald-800\/60 { color: #6ee7b7; }
@@ -525,7 +531,7 @@ html.dark .seat-map-panel > .absolute.inset-0 { background-image: linear-gradien
 }
 @keyframes viewSwapEnter { from { opacity: .72; transform: translate3d(0, 8px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
 .view-swap-enter { animation: viewSwapEnter 220ms cubic-bezier(.2,.75,.25,1) both; }
-@keyframes hofContentEnter { from { opacity: .65; transform: translate3d(0, 5px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+@keyframes hofContentEnter { from { transform: translate3d(0, 4px, 0); } to { transform: translate3d(0, 0, 0); } }
 .hof-content { animation: hofContentEnter 180ms cubic-bezier(.2,.75,.25,1) both; }
 ::view-transition-old(app-content), ::view-transition-new(app-content) { animation-duration: 220ms; animation-timing-function: cubic-bezier(.2,.75,.25,1); }
 ::view-transition-old(app-content) { animation-name: fadeOutPlain; }
@@ -913,9 +919,23 @@ function renderHeader() {
       function renderLayout() {
             const app = document.getElementById('app');
             
-            // Nếu chưa đăng nhập thì hiển thị màn hình đăng nhập
+            // Nếu chưa đăng nhập thì hiển thị màn hình đăng nhập.
+            // Dùng cùng chuyển cảnh với các trang bên trong để đổi vai trò không bị nháy.
             if (state.auth && !state.auth.loggedIn) {
-                app.innerHTML = renderLoginScreen() + `<div id="modal-container"></div>`;
+                const loginHtml = renderLoginScreen() + `<div id="modal-container"></div>`;
+                const wasRendered = !!window.__appRenderedOnce;
+                window.__appRenderedOnce = true;
+                if (wasRendered && !window.matchMedia('(prefers-reduced-motion: reduce)').matches && document.startViewTransition) {
+                    try { document.startViewTransition(() => { app.innerHTML = loginHtml; }); }
+                    catch (e) { app.innerHTML = loginHtml; }
+                } else {
+                    app.innerHTML = loginHtml;
+                    if (wasRendered) {
+                        app.classList.remove('view-swap-enter');
+                        void app.offsetWidth;
+                        app.classList.add('view-swap-enter');
+                    }
+                }
                 return;
             }
             
@@ -942,7 +962,10 @@ function renderHeader() {
             const isRightSidebar = state.settings.sidebarPosition === 'right';
             
             // --- ĐÂY LÀ ĐOẠN ĐÃ ĐƯỢC CHỈNH SỬA CHO ĐIỆN THOẠI ---
-            const animateView = !!window.__animateNextView;
+            // Transition mượt cho mọi lần render lại (chuyển mục, đổi bộ lọc/tổ, cập nhật UI),
+            // không chỉ khi bấm menu. Lần render đầu không animate để tránh nháy lúc tải trang.
+            const animateView = !!window.__appRenderedOnce;
+            window.__appRenderedOnce = true;
             window.__animateNextView = false;
             const updateApp = () => { app.innerHTML = `
                 ${!isRightSidebar ? renderSidebar() : ''}
@@ -980,10 +1003,6 @@ function renderHeader() {
                 setTimeout(window.applyStudentFilter, 0);
             }
 
-            // Bảng Phong Thần đang mở thì cập nhật lại theo dữ liệu mới
-            if (document.getElementById('hall-of-fame-modal') && typeof window.renderHallOfFame === 'function') {
-                window.renderHallOfFame();
-            }
         }
     function renderViewTongQuan() {
     // --- 1. LẤY DỮ LIỆU HÔM NAY ĐỂ ĐÁNH GIÁ (YÊU CẦU 3) ---
@@ -1340,6 +1359,8 @@ function renderHeader() {
           }
           const emptyState = document.getElementById('hs-empty-state');
           if (emptyState) emptyState.classList.toggle('hidden', visibleCount > 0);
+          const quickCount = document.getElementById('hs-visible-count');
+          if (quickCount) quickCount.textContent = String(visibleCount);
 
           const clearBtn = document.getElementById('hs-clear-search');
           if (clearBtn) clearBtn.classList.toggle('hidden', !(state.studentSearch || ''));
@@ -1429,26 +1450,29 @@ function renderHeader() {
                     </button>
                 `).join('');
 
+                const quickPositive = state.criteria.positive[0];
+                const quickNegative = state.criteria.negative[0];
                 actionAreaHtml = `
-                    <div class="flex items-center justify-center gap-4 w-full relative mb-6 px-4">
-                        <div class="relative w-full">
-                            <button onclick="toggleQuickMenu(event, 'quick-minus-${s.id}')" title="Trừ điểm" class="w-full h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 hover:text-red-600 transition-colors border border-red-100 font-black text-lg shadow-sm">
-                                <i class="ph-bold ph-minus"></i>
-                            </button>
-                            <div id="quick-minus-${s.id}" class="student-dropdown hidden absolute bottom-[calc(100%+8px)] left-0 w-60 bg-white border border-red-100 shadow-[0_10px_40px_rgba(239,68,68,0.15)] rounded-2xl z-50 p-2 max-h-56 overflow-y-auto custom-scrollbar animate-slide-up">
-                                <div class="text-[10px] text-red-400 font-bold uppercase tracking-widest px-2 pb-2 mb-2 border-b border-red-50 text-left">Chọn lý do trừ điểm:</div>
-                                ${negativeList || '<div class="text-xs text-slate-400 italic p-2 text-center">Chưa có mẫu</div>'}
+                    <div class="w-full mb-5 px-3 space-y-2">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="relative flex gap-1 min-w-0">
+                                ${quickNegative ? `<button onclick="executeQuickPoint(${s.id},${quickNegative.points}, '${escapeInlineJs(quickNegative.reason)}', '${escapeInlineJs(quickNegative.category)}', 'subtract')" title="${escapeHtmlAttr(quickNegative.reason)}" class="flex-1 min-w-0 h-11 px-2 rounded-xl bg-red-50 text-red-600 border border-red-100 font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-transform"><i class="ph-bold ph-minus-circle text-base"></i><span class="truncate">${quickNegative.reason}</span><b class="shrink-0">−${quickNegative.points}</b></button>` : ''}
+                                <button onclick="toggleQuickMenu(event, 'quick-minus-${s.id}')" title="Chọn lý do trừ khác" class="w-9 h-11 shrink-0 rounded-xl bg-red-50 text-red-500 border border-red-100 flex items-center justify-center"><i class="ph-bold ph-caret-down"></i></button>
+                                <div id="quick-minus-${s.id}" class="student-dropdown hidden absolute bottom-[calc(100%+8px)] left-0 w-60 bg-white border border-red-100 shadow-[0_10px_40px_rgba(239,68,68,0.15)] rounded-2xl z-50 p-2 max-h-56 overflow-y-auto custom-scrollbar">
+                                    <div class="text-[10px] text-red-400 font-bold uppercase tracking-widest px-2 pb-2 mb-2 border-b border-red-50 text-left">Lý do trừ điểm khác:</div>
+                                    ${negativeList || '<div class="text-xs text-slate-400 italic p-2 text-center">Chưa có mẫu</div>'}
+                                </div>
+                            </div>
+                            <div class="relative flex gap-1 min-w-0">
+                                ${quickPositive ? `<button onclick="executeQuickPoint(${s.id},${quickPositive.points}, '${escapeInlineJs(quickPositive.reason)}', '${escapeInlineJs(quickPositive.category)}', 'add')" title="${escapeHtmlAttr(quickPositive.reason)}" class="flex-1 min-w-0 h-11 px-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-transform"><i class="ph-bold ph-plus-circle text-base"></i><span class="truncate">${quickPositive.reason}</span><b class="shrink-0">+${quickPositive.points}</b></button>` : ''}
+                                <button onclick="toggleQuickMenu(event, 'quick-plus-${s.id}')" title="Chọn lý do cộng khác" class="w-9 h-11 shrink-0 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center"><i class="ph-bold ph-caret-down"></i></button>
+                                <div id="quick-plus-${s.id}" class="student-dropdown hidden absolute bottom-[calc(100%+8px)] right-0 w-60 bg-white border border-emerald-100 shadow-[0_10px_40px_rgba(16,185,129,0.15)] rounded-2xl z-50 p-2 max-h-56 overflow-y-auto custom-scrollbar">
+                                    <div class="text-[10px] text-emerald-500 font-bold uppercase tracking-widest px-2 pb-2 mb-2 border-b border-emerald-50 text-left">Lý do cộng khác:</div>
+                                    ${positiveList || '<div class="text-xs text-slate-400 italic p-2 text-center">Chưa có mẫu</div>'}
+                                </div>
                             </div>
                         </div>
-                        <div class="relative w-full">
-                            <button onclick="toggleQuickMenu(event, 'quick-plus-${s.id}')" title="Cộng điểm" class="w-full h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center hover:bg-emerald-100 hover:text-emerald-600 transition-colors border border-emerald-100 font-black text-lg shadow-sm">
-                                <i class="ph-bold ph-plus"></i>
-                            </button>
-                            <div id="quick-plus-${s.id}" class="student-dropdown hidden absolute bottom-[calc(100%+8px)] right-0 w-60 bg-white border border-emerald-100 shadow-[0_10px_40px_rgba(16,185,129,0.15)] rounded-2xl z-50 p-2 max-h-56 overflow-y-auto custom-scrollbar animate-slide-up">
-                                <div class="text-[10px] text-emerald-500 font-bold uppercase tracking-widest px-2 pb-2 mb-2 border-b border-emerald-50 text-left">Chọn lý do cộng điểm:</div>
-                                ${positiveList || '<div class="text-xs text-slate-400 italic p-2 text-center">Chưa có mẫu</div>'}
-                            </div>
-                        </div>
+                        <div class="text-[9px] font-bold text-slate-400 text-center">Chạm trực tiếp để ghi điểm • mũi tên để chọn lý do khác</div>
                     </div>
                 `;
             }
@@ -1456,7 +1480,7 @@ function renderHeader() {
             const searchIndex = window.normalizeSearch([s.name, s.code, s.role, s.group].join(' '));
 
             return `
-            <div data-student-card data-group="${escapeHtmlAttr(s.group || '')}" data-search="${escapeHtmlAttr(searchIndex)}"
+            <div data-student-card data-student-id="${s.id}" data-group="${escapeHtmlAttr(s.group || '')}" data-search="${escapeHtmlAttr(searchIndex)}"
                  class="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-200 border-t-4 border-t-${borderColorClass.replace('border-', '')} flex flex-col items-center relative hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
 
                 <div class="absolute top-4 right-4 z-20">
@@ -1518,6 +1542,15 @@ function renderHeader() {
                 </button>`;
             }).join('')}
         `;
+
+        const quickCriterionValue = state.studentQuickCriterion || 'add:0';
+        const quickCriterionOptions = [
+            ...state.criteria.positive.map((c, i) => ({ key: `add:${i}`, sign: '+', color: 'Cộng', ...c })),
+            ...state.criteria.negative.map((c, i) => ({ key: `subtract:${i}`, sign: '−', color: 'Trừ', ...c }))
+        ];
+        const quickCriterionOptionsHtml = quickCriterionOptions.map(c =>
+            `<option value="${c.key}" ${c.key === quickCriterionValue ? 'selected' : ''}>${c.color} ${c.sign}${c.points} • ${c.reason}</option>`
+        ).join('');
 
         const sectionsHtml = buckets.map(b => {
             const isCollapsed = !!state.studentCollapsedGroups[b.key];
@@ -1596,6 +1629,18 @@ function renderHeader() {
                     </div>
                 </div>
 
+                ${!isBGH ? `
+                <section class="quick-score-panel bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-4 md:p-5 shadow-sm">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center"><i class="ph-bold ph-lightning text-lg"></i></span>
+                        <div class="min-w-0"><div class="font-black text-slate-800">Chấm nhanh</div><div class="text-[11px] text-slate-500">Chọn mẫu một lần, áp dụng theo bộ lọc tìm kiếm hoặc tổ.</div></div>
+                    </div>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <select id="hs-quick-criterion" onchange="state.studentQuickCriterion=this.value" class="flex-1 min-w-0 px-3 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-300">${quickCriterionOptionsHtml}</select>
+                        <button onclick="applyQuickPointToVisible()" class="w-full sm:w-auto px-4 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[.98] text-white font-black text-sm flex items-center justify-center gap-2 shadow-md transition-all"><i class="ph-bold ph-check-circle text-lg"></i><span>Áp dụng cho <b id="hs-visible-count">${state.students.length}</b> HS phù hợp</span></button>
+                    </div>
+                </section>` : ''}
+
                 <div id="hs-groups-root" class="space-y-10">
                     ${sectionsHtml || '<div class="text-center py-16 text-slate-400 font-bold italic">Chưa có học sinh nào trong lớp</div>'}
                 </div>
@@ -1609,6 +1654,37 @@ function renderHeader() {
             </div>
         `;
       }
+        window.applyQuickPointToVisible = function() {
+            const select = document.getElementById('hs-quick-criterion');
+            const key = select ? select.value : (state.studentQuickCriterion || 'add:0');
+            state.studentQuickCriterion = key;
+            const [type, indexText] = key.split(':');
+            const list = type === 'subtract' ? state.criteria.negative : state.criteria.positive;
+            const criterion = list[Number(indexText)];
+            if (!criterion) return showToast('Chưa có mẫu điểm phù hợp.', 'error');
+            const cards = Array.from(document.querySelectorAll('[data-student-card]'))
+                .filter(card => card.style.display !== 'none' && card.offsetParent !== null);
+            const students = cards.map(card => state.students.find(s => String(s.id) === card.getAttribute('data-student-id'))).filter(Boolean);
+            if (!students.length) return showToast('Không có học sinh nào đang hiển thị.', 'error');
+            const sign = type === 'subtract' ? -1 : 1;
+            const amount = sign * Number(criterion.points);
+            const action = type === 'subtract' ? 'trừ' : 'cộng';
+            const scope = (state.studentSearch || state.studentGroupFilter !== 'all') ? 'theo bộ lọc hiện tại' : 'toàn bộ danh sách';
+            const ok = confirm(`Xác nhận ${action} ${criterion.points} điểm cho ${students.length} học sinh ${scope}?\nLý do: ${criterion.reason} (${criterion.category})`);
+            if (!ok) return;
+            const actorName = (state.auth && state.auth.role === 'bcs') ? 'Ban Cán Sự' : 'GVCN';
+            const now = new Date().toISOString();
+            students.forEach(student => {
+                student.points = (student.points || 0) + amount;
+                student.stars = Math.max(0, (student.stars || 0) + amount);
+                if (!student.history) student.history = [];
+                student.history.push({ id: Date.now() + Math.random(), date: now, points: amount, reason: `${criterion.reason} [${criterion.category}]`, actor: actorName });
+            });
+            saveData();
+            renderLayout();
+            showToast(`Đã ${action} ${criterion.points} điểm cho ${students.length} học sinh.`, type === 'subtract' ? 'error' : 'success');
+        };
+
         function renderViewTichDiem() {
             const pf = state.pointsForm;
             const isAdd = pf.actionType === 'add';
@@ -9674,5 +9750,5 @@ window.deleteHistoryRecord = function(studentId, recordId) {
 })();
 
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a573a6bdaa200978',t:'MTc5NDEzMTE5NA=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a573a6bdaa200978',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
