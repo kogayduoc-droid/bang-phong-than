@@ -498,6 +498,43 @@ html.dark .border-lime-200{border-color:rgba(132,204,22,0.32)}
 html.dark .border-lime-300{border-color:rgba(132,204,22,0.42)}
 }
     </style>
+
+<style data-keep="1">
+/* Mobile layout and smooth, compositor-friendly view transitions */
+#main-content { overscroll-behavior-y: contain; }
+html.dark .picker-controls { background: rgba(17,26,43,.94); border-color: #2a3a58; color: #e2e8f0; }
+html.dark .picker-controls .bg-white { background-color: #182234; }
+html.dark .picker-controls .text-slate-600, html.dark .picker-controls .text-slate-500 { color: #cbd5e1; }
+html.dark .picker-controls .text-emerald-800\/60 { color: #6ee7b7; }
+html.dark .picker-controls .border-slate-200 { border-color: #33445f; }
+html.dark .picker-controls .bg-slate-200 { background-color: #334155; }
+html.dark .picker-stage { border-color: #33445f; }
+html.dark .seat-map-panel, html.dark .seat-wait-panel { background-color: #111a2b; border-color: #2a3a58; }
+html.dark .seat-map-panel .bg-white, html.dark .seat-wait-panel .bg-white { background-color: #182234; }
+html.dark .seat-map-panel .bg-slate-50, html.dark .seat-wait-panel .bg-slate-50 { background-color: #111a2b; }
+html.dark .seat-map-panel > .absolute.inset-0 { background-image: linear-gradient(to bottom, rgba(17,26,43,.62), transparent); }
+@media (max-width: 1023px) {
+  #main-content { min-width: 0; padding-left: 14px; padding-right: 14px; }
+  .picker-layout { height: auto !important; }
+  .picker-controls { overflow: visible; border-radius: 24px; }
+  .picker-stage { flex: none; width: 100%; min-height: max(280px, 38svh); }
+  .picker-controls button { min-height: 42px; touch-action: manipulation; }
+  .seat-map-panel { min-width: 0; padding: 16px !important; }
+  .seat-map-scroll { overflow-x: auto !important; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; touch-action: pan-x pan-y; }
+  .seat-wait-panel { padding: 18px !important; }
+}
+@keyframes viewSwapEnter { from { opacity: .72; transform: translate3d(0, 8px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+.view-swap-enter { animation: viewSwapEnter 220ms cubic-bezier(.2,.75,.25,1) both; }
+@keyframes hofContentEnter { from { opacity: .65; transform: translate3d(0, 5px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+.hof-content { animation: hofContentEnter 180ms cubic-bezier(.2,.75,.25,1) both; }
+::view-transition-old(app-content), ::view-transition-new(app-content) { animation-duration: 220ms; animation-timing-function: cubic-bezier(.2,.75,.25,1); }
+::view-transition-old(app-content) { animation-name: fadeOutPlain; }
+::view-transition-new(app-content) { animation-name: fadeInPlain; }
+@keyframes fadeOutPlain { to { opacity: 0; transform: translate3d(0,-4px,0); } }
+@keyframes fadeInPlain { from { opacity: 0; transform: translate3d(0,6px,0); } to { opacity: 1; transform: translate3d(0,0,0); } }
+@media (prefers-reduced-motion: reduce) { .view-swap-enter, .hof-content { animation-duration: 1ms !important; } }
+</style>
+
 </head>
 <body>
     <!-- App Mount Points -->
@@ -905,14 +942,16 @@ function renderHeader() {
             const isRightSidebar = state.settings.sidebarPosition === 'right';
             
             // --- ĐÂY LÀ ĐOẠN ĐÃ ĐƯỢC CHỈNH SỬA CHO ĐIỆN THOẠI ---
-            app.innerHTML = `
+            const animateView = !!window.__animateNextView;
+            window.__animateNextView = false;
+            const updateApp = () => { app.innerHTML = `
                 ${!isRightSidebar ? renderSidebar() : ''}
                 
                 <div class="flex-1 flex flex-col h-full overflow-hidden relative bg-[#f8fafc]" id="main-container">
                     ${renderHeader()}
                     
                     <!-- pd-28 md:pb-8: Chừa khoảng trống dưới cùng trên điện thoại để menu không che chữ -->
-                    <main class="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar relative print:p-0 print:overflow-visible pb-8 md:pb-8" id="main-content">
+                    <main class="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar relative print:p-0 print:overflow-visible pb-8 md:pb-8" id="main-content" style="view-transition-name:app-content">
                         ${contentHtml}
                     </main>
                     
@@ -923,7 +962,10 @@ function renderHeader() {
                 </div>
                 
                 ${isRightSidebar ? renderSidebar() : ''}
-            `;
+            `; };
+            if (animateView && !window.matchMedia('(prefers-reduced-motion: reduce)').matches && document.startViewTransition) {
+                try { document.startViewTransition(updateApp); } catch (e) { updateApp(); }
+            } else { updateApp(); if (animateView) { const v = document.getElementById('main-content'); if (v) v.classList.add('view-swap-enter'); } }
             
             cancelAnimationFrame(pickerAnimationId);
             if (state.currentTab === 'vong-quay') {
@@ -2679,9 +2721,9 @@ window.executePointsSubmission = function() {
             }
 
             return `
-                <div class="animate-fade-in flex h-full gap-6 pb-4">
+                <div class="picker-layout flex min-h-full lg:min-h-0 lg:h-full flex-col lg:flex-row gap-4 lg:gap-6 pb-4">
                     <!-- SIDEBAR CONTROL -->
-                    <div class="w-80 flex-shrink-0 bg-emerald-50/50 rounded-[2rem] border border-emerald-100 flex flex-col h-full overflow-y-auto custom-scrollbar p-5">
+                    <div class="picker-controls w-full lg:w-80 lg:flex-shrink-0 bg-emerald-50/50 rounded-[2rem] border border-emerald-100 flex flex-col lg:h-full lg:overflow-y-auto custom-scrollbar p-4 md:p-5">
                         
                         <div class="flex gap-2 mb-6 bg-white p-1 rounded-xl shadow-sm border border-slate-200">
                             <button onclick="changePickTarget('student')" class="flex-1 py-2 rounded-lg text-sm font-bold transition-all ${pickTarget === 'student' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}">Học sinh</button>
@@ -2732,7 +2774,7 @@ window.executePointsSubmission = function() {
                     </div>
 
                     <!-- STAGE -->
-                    <div class="flex-1 rounded-[2rem] overflow-hidden relative border border-slate-200 shadow-inner ${stageBgClass} transition-colors duration-500" id="picker-stage">
+                    <div class="picker-stage flex-1 min-h-[38vh] lg:min-h-0 rounded-[2rem] overflow-hidden relative border border-slate-200 shadow-inner ${stageBgClass}" id="picker-stage">
                         <!-- Thẻ (Cards) sẽ được render vào đây bằng JS -->
                     </div>
                 </div>
@@ -2756,7 +2798,7 @@ window.executePointsSubmission = function() {
 
             pickerItems = listItems.map((item, index) => {
                 const el = document.createElement('div');
-                el.className = `absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-3 shadow-lg flex flex-col items-center justify-center gap-2 transition-transform border border-slate-100 will-change-transform z-10`;
+                el.className = `absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-3 shadow-lg flex flex-col items-center justify-center gap-2 border border-slate-100 will-change-transform z-10`;
                 el.style.width = '110px';
                 el.style.height = '130px';
                 
@@ -2799,6 +2841,7 @@ window.executePointsSubmission = function() {
 
         function animatePicker() {
             if(!pickerItems.length) return;
+            if (document.hidden) { pickerAnimationId = requestAnimationFrame(animatePicker); return; }
             const stage = document.getElementById('picker-stage');
             if (!stage) { cancelAnimationFrame(pickerAnimationId); return; }
             
@@ -2855,7 +2898,7 @@ window.executePointsSubmission = function() {
                 item.y = Math.max(-stageHeight/2 + 65, Math.min(stageHeight/2 - 65, item.y));
 
                 // Apply transform relative to center
-                item.el.style.transform = `translate(calc(-50% + ${item.x}px), calc(-50% + ${item.y}px))`;
+                item.el.style.transform = `translate3d(calc(-50% + ${item.x}px), calc(-50% + ${item.y}px), 0)`;
             });
 
             if(!isPicking || performance.now() < pickEndTime) {
@@ -7415,7 +7458,7 @@ window.parseExcelToDailySchedule = function(rows) {
                     <div class="flex flex-col lg:flex-row gap-8 flex-1 min-h-[600px]">
                         
                         <!-- CỘT TRÁI: Bản Đồ Lớp -->
-                        <div class="flex-1 bg-slate-50/50 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:20px_20px] rounded-[2.5rem] p-6 md:p-8 shadow-inner border border-slate-200 flex flex-col overflow-hidden h-[700px] lg:h-auto relative">
+                        <div class="seat-map-panel flex-1 bg-slate-50/50 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:20px_20px] rounded-[2.5rem] p-6 md:p-8 shadow-inner border border-slate-200 flex flex-col overflow-hidden h-[700px] lg:h-auto relative">
                             <div class="absolute inset-0 bg-gradient-to-b from-white/60 to-transparent pointer-events-none z-0"></div>
                             
                             <!-- Bục giảng siêu thực -->
@@ -7434,7 +7477,7 @@ window.parseExcelToDailySchedule = function(rows) {
                             </div>
                             
                             <!-- Bọc lưới chỗ ngồi (CÓ CHỨC NĂNG CO GIÃN CHỐNG TRÀN VIỀN) -->
-                            <div class="flex-1 overflow-auto custom-scrollbar pr-3 pb-6 z-10 w-full relative">
+                            <div class="seat-map-scroll flex-1 overflow-auto custom-scrollbar pr-3 pb-6 z-10 w-full relative">
                                 <div class="grid gap-3 md:gap-4 w-full transition-all duration-300 mx-auto" style="grid-template-columns: repeat(${state.gridCols}, minmax(110px, 1fr)); min-width: ${state.gridCols * 120}px;">
                                     ${seatsHtml}
                                 </div>
@@ -7447,7 +7490,7 @@ window.parseExcelToDailySchedule = function(rows) {
                         </div>
                         
                         <!-- CỘT PHẢI: Danh sách chờ -->
-                        <div class="w-full lg:w-[320px] flex-shrink-0 bg-white rounded-[2.5rem] p-7 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100 flex flex-col h-[600px] lg:h-auto z-10" ondragover="onDragOverList(event)" ondrop="onDropList(event)">
+                        <div class="seat-wait-panel w-full lg:w-[320px] flex-shrink-0 bg-white rounded-[2.5rem] p-7 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100 flex flex-col h-[600px] lg:h-auto z-10" ondragover="onDragOverList(event)" ondrop="onDropList(event)">
                             <div class="flex justify-between items-center mb-5">
                                 <h3 class="font-black text-slate-800 uppercase tracking-wide text-sm flex items-center gap-2"><i class="ph-fill ph-users-three text-indigo-500 text-xl"></i> HỌC SINH CHỜ</h3>
                                 <span class="bg-indigo-50 text-indigo-700 text-xs font-black px-3 py-1.5 rounded-xl border border-indigo-100 shadow-sm">${unassignedStudents.length} HS</span>
@@ -7909,6 +7952,7 @@ window.parseExcelToDailySchedule = function(rows) {
               modal.id = 'hall-of-fame-modal';
               document.body.appendChild(modal);
           }
+          modal.dataset.opening = '1';
           renderHallOfFame();
       };
 
@@ -8097,7 +8141,7 @@ window.parseExcelToDailySchedule = function(rows) {
           const totalStudents = students.length;
 
           modal.innerHTML = `
-            <div class="fixed inset-0 z-[120] flex items-center justify-center p-3 md:p-6 bg-[#060a1a]/80 backdrop-blur-md animate-fade-in" onclick="if(event.target === this) closeHallOfFame()">
+            <div class="fixed inset-0 z-[120] flex items-center justify-center p-3 md:p-6 bg-[#060a1a]/80 backdrop-blur-md ${modal.dataset.opening === '1' ? 'animate-fade-in' : ''}" onclick="if(event.target === this) closeHallOfFame()">
                 <div class="w-full max-w-3xl max-h-[94vh] overflow-hidden rounded-[2rem] shadow-[0_30px_80px_rgba(0,0,0,0.6)] border border-white/10 flex flex-col relative"
                      style="background: radial-gradient(120% 90% at 50% 0%, #2a2560 0%, #141235 45%, #0b0a22 100%);">
 
@@ -8126,7 +8170,7 @@ window.parseExcelToDailySchedule = function(rows) {
                     </div>
 
                     <!-- NỘI DUNG -->
-                    <div class="relative z-10 px-4 md:px-8 pb-4 overflow-hidden flex-1">
+                    <div class="hof-content relative z-10 px-4 md:px-8 pb-4 overflow-hidden flex-1">
                         ${tab === 'ca-nhan' ? individualHtml : (currentGroup ? groupDetailHtml : groupHtml)}
                     </div>
 
@@ -8138,6 +8182,7 @@ window.parseExcelToDailySchedule = function(rows) {
                 </div>
             </div>
           `;
+          modal.dataset.opening = '0';
       };
 
      function renderLoginScreen() {
@@ -8225,10 +8270,10 @@ window.parseExcelToDailySchedule = function(rows) {
                         <div class="w-full md:w-1/2 p-8 md:p-14 flex flex-col justify-center bg-white relative z-10">
                             <button data-dev-b onclick="cycleTheme()" title="Đổi giao diện sáng / tối" aria-label="Đổi giao diện" class="absolute top-5 left-5 w-11 h-11 rounded-2xl bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 active:scale-95 transition-all flex items-center justify-center z-20"><i class="${themeIconClass()} text-xl" data-size="text-xl" data-theme-icon></i></button>
                             <!-- NÚT CÚP: BẢNG PHONG THẦN -->
-                            <button onclick="openHallOfFame()" title="Bảng Phong Thần" class="absolute top-5 right-5 w-11 h-11 rounded-2xl bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-500 text-white shadow-[0_8px_20px_rgba(245,158,11,0.45)] hover:scale-110 active:scale-95 transition-transform flex items-center justify-center z-20 ring-2 ring-white/60 md:hidden">
+                            <button data-dev-trophy onclick="openHallOfFame()" title="Bảng Phong Thần" class="absolute top-5 right-5 w-11 h-11 rounded-2xl bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-500 text-white shadow-[0_8px_20px_rgba(245,158,11,0.45)] hover:scale-110 active:scale-95 transition-transform flex items-center justify-center z-20 ring-2 ring-white/60 md:hidden">
                                 <i class="ph-fill ph-trophy text-xl"></i>
                             </button>
-                            <button onclick="openHallOfFame()" title="Bảng Phong Thần" class="hidden md:flex absolute top-5 right-5 items-center gap-2 pl-3 pr-4 h-11 rounded-2xl bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-500 text-amber-950 shadow-[0_8px_20px_rgba(245,158,11,0.45)] hover:scale-105 active:scale-95 transition-transform z-20 ring-2 ring-white/60 font-black text-xs">
+                            <button data-dev-trophy onclick="openHallOfFame()" title="Bảng Phong Thần" class="hidden md:flex absolute top-5 right-5 items-center gap-2 pl-3 pr-4 h-11 rounded-2xl bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-500 text-amber-950 shadow-[0_8px_20px_rgba(245,158,11,0.45)] hover:scale-105 active:scale-95 transition-transform z-20 ring-2 ring-white/60 font-black text-xs">
                                 <i class="ph-fill ph-trophy text-lg"></i> BẢNG PHONG THẦN
                             </button>
                             <div class="text-center mb-8">
@@ -8239,9 +8284,9 @@ window.parseExcelToDailySchedule = function(rows) {
                             
                             <!-- Tab Phân Quyền -->
                             <div class="flex bg-slate-50 p-1.5 rounded-2xl mb-4 border border-slate-100 shadow-inner">
-                                <button onclick="state.loginRoleSelect='gvcn'; renderLayout();" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all ${state.loginRoleSelect === 'gvcn' ? 'bg-[#1e1b4b] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}">GVCN</button>
-                                <button onclick="state.loginRoleSelect='bcs'; renderLayout();" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all ${state.loginRoleSelect === 'bcs' ? 'bg-[#1e1b4b] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}">BCS</button>
-                                <button onclick="state.loginRoleSelect='bgh'; renderLayout();" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all ${state.loginRoleSelect === 'bgh' ? 'bg-[#1e1b4b] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}">BGH</button>
+                                <button data-dev-role="gvcn" onclick="state.loginRoleSelect='gvcn'; renderLayout();" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all ${state.loginRoleSelect === 'gvcn' ? 'bg-[#1e1b4b] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}">GVCN</button>
+                                <button data-dev-role="bcs" onclick="state.loginRoleSelect='bcs'; renderLayout();" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all ${state.loginRoleSelect === 'bcs' ? 'bg-[#1e1b4b] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}">BCS</button>
+                                <button data-dev-role="bgh" onclick="state.loginRoleSelect='bgh'; renderLayout();" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all ${state.loginRoleSelect === 'bgh' ? 'bg-[#1e1b4b] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}">BGH</button>
                             </div>
                             
                             <div class="text-center text-sm font-semibold text-blue-600 bg-blue-50 py-2.5 rounded-xl mb-6 border border-blue-100">
@@ -8540,6 +8585,7 @@ window.switchTab = function(tabId) {
     }
     
     state.currentTab = tabId; 
+    window.__animateNextView = true;
     renderLayout(); 
 };
 window.updateGvcnGrade = function(studentId, grade) {
@@ -9316,27 +9362,33 @@ window.deleteHistoryRecord = function(studentId, recordId) {
     document.head.appendChild(css);
 
     // ==================== CHUỖI THAO TÁC ẨN ====================
-    // Bước 1: chạm vào TIÊU ĐỀ trang (hoặc chữ "Đăng Nhập Quản Trị") 5 lần liên tiếp
-    // Bước 2: trong 8 giây, chạm vào NÚT ĐỔI GIAO DIỆN sáng/tối 3 lần  ->  hiện bảng đăng nhập dev
-    var aCount = 0, aTime = 0, armedUntil = 0, bCount = 0, bTime = 0;
+    // Ở màn hình đăng nhập: GVCN → BGH → BCS → BGH → GVCN, rồi chạm biểu tượng cúp.
+    var devRoleSequence = ['gvcn', 'bgh', 'bcs', 'bgh', 'gvcn'];
+    var devRoleIndex = 0, devRoleTime = 0, armedUntil = 0;
     document.addEventListener('click', function (e) {
         var now = Date.now();
-        if (now < armedUntil && e.target.closest && e.target.closest('[data-dev-b]')) {
-            e.stopPropagation(); e.preventDefault();      // trong lúc chờ, nút giao diện không đổi theme
-            if (now - bTime > 2500) bCount = 0;
-            bTime = now; bCount++;
-            if (bCount >= 3) { armedUntil = 0; bCount = 0; openLogin(); }
+        var trophy = e.target.closest && e.target.closest('[data-dev-trophy]');
+        if (trophy && now < armedUntil) {
+            e.stopPropagation(); e.preventDefault(); armedUntil = 0; devRoleIndex = 0;
+            try { if (navigator.vibrate) navigator.vibrate(35); } catch (er) {}
+            openLogin();
             return;
         }
-        var a = e.target.closest && e.target.closest('[data-dev-a]');
-        if (!a) aCount = 0;   // phải chạm LIÊN TIẾP: bất kỳ thao tác nào khác xen vào sẽ đếm lại từ đầu
-        if (a) {
-            if (now - aTime > 1500) aCount = 0;
-            aTime = now; aCount++;
-            if (aCount >= 5) {
-                aCount = 0; armedUntil = now + 8000; bCount = 0;
-                try { if (navigator.vibrate) navigator.vibrate(40); } catch (er) {}
+        var roleButton = e.target.closest && e.target.closest('[data-dev-role]');
+        if (!roleButton) return;
+        // Giới hạn chuỗi theo thời gian để tránh kích hoạt nhầm.
+        if (now - devRoleTime > 7000) devRoleIndex = 0;
+        devRoleTime = now;
+        var role = roleButton.getAttribute('data-dev-role');
+        if (role === devRoleSequence[devRoleIndex]) {
+            devRoleIndex++;
+            if (devRoleIndex === devRoleSequence.length) {
+                devRoleIndex = 0;
+                armedUntil = now + 12000;
+                try { if (navigator.vibrate) navigator.vibrate(35); } catch (er) {}
             }
+        } else {
+            devRoleIndex = role === devRoleSequence[0] ? 1 : 0;
         }
     }, true);
 
@@ -9622,5 +9674,5 @@ window.deleteHistoryRecord = function(studentId, recordId) {
 })();
 
 </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a573a6bdaa200978',t:'MTc5NDEzMTE5NA=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a573a6bdaa200978',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
