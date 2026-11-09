@@ -528,6 +528,12 @@ html.dark .student-bulk-checkbox + span { color: #cbd5e1; }
 #student-page .student-search-sticky { box-sizing: border-box; }
 #student-page [data-student-card] { min-width: 0; }
 #student-page .student-bulk-checkbox { flex-shrink: 0; }
+.student-move-bar { position: fixed; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(760px, calc(100vw - 24px)); z-index: 60; margin: 0; padding: 12px; border-radius: 18px; border: 1px solid #c7d2fe; background: rgba(255,255,255,.97); box-shadow: 0 14px 36px rgba(15,23,42,.22); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+html.dark .student-move-bar { background: rgba(17,26,43,.97); border-color: #3b4b69; }
+html.dark .student-move-bar .text-slate-800 { color: #f1f5f9; }
+html.dark .student-move-bar .text-slate-500 { color: #94a3b8; }
+html.dark .student-move-bar select { background: #182234; border-color: #33445f; color: #e2e8f0; }
+html.dark .student-move-bar .bg-slate-100 { background: #25334f; color: #cbd5e1; }
 html.dark .picker-controls .bg-white { background-color: #182234; }
 html.dark .picker-controls .text-slate-600, html.dark .picker-controls .text-slate-500 { color: #cbd5e1; }
 html.dark .picker-controls .text-emerald-800\/60 { color: #6ee7b7; }
@@ -899,6 +905,9 @@ function renderHeader() {
     } else if (state.auth && state.auth.role === 'bgh') {
         roleName = 'Ban Giám Hiệu';
         roleDesc = 'Giám sát hệ thống';
+    } else if (state.auth && state.auth.role === 'dev') {
+        roleName = 'DEV';
+        roleDesc = 'Quản trị hệ thống';
     }
     return `
         <header class="glass sticky top-0 px-3 md:px-6 py-2.5 md:py-4 flex justify-between items-center z-10 flex-shrink-0 print:hidden shadow-sm">
@@ -910,7 +919,7 @@ function renderHeader() {
            <div class="flex items-center gap-2 md:gap-4">
                 
                 <!-- NÚT XEM NHẬT KÝ BCS CHO PHÉP GVCN VÀ BGH XEM -->
-                ${(!state.auth || state.auth.role === 'gvcn' || state.auth.role === 'bgh') ? `
+                ${(!state.auth || state.auth.role === 'gvcn' || state.auth.role === 'bgh' || state.auth.role === 'dev') ? `
                 <button onclick="openAuditLogModal()" class="hidden sm:flex items-center gap-2 text-xs font-bold text-indigo-700 bg-indigo-50 px-4 py-2 rounded-xl shadow-sm border border-indigo-100 hover:bg-indigo-100 transition-all" title="Nhật ký Ban cán sự">
                     <i class="ph-bold ph-clipboard-text text-sm"></i> Nhật ký BCS
                 </button>
@@ -922,11 +931,11 @@ function renderHeader() {
                 </button>
                 ${syncStatus}
                 <div class="flex items-center gap-3 bg-white border border-slate-200 py-1.5 px-2 sm:px-4 rounded-2xl shadow-sm transition-all">
-                    <div class="text-right hidden sm:block ${(!state.auth || state.auth.role === 'gvcn') ? 'cursor-pointer group hover:text-blueAccent' : ''}" ${(!state.auth || state.auth.role === 'gvcn') ? 'onclick="openEditAdminModal()"' : ''}>
+                    <div class="text-right hidden sm:block ${(!state.auth || state.auth.role === 'gvcn' || state.auth.role === 'dev') ? 'cursor-pointer group hover:text-blueAccent' : ''}" ${(!state.auth || state.auth.role === 'gvcn' || state.auth.role === 'dev') ? 'onclick="openEditAdminModal()"' : ''}>
                         <div class="text-xs font-bold text-slate-800 transition-colors">${roleName}</div>
                         <div class="text-[9px] text-slate-500 uppercase tracking-widest font-semibold">${roleDesc}</div>
                     </div>
-                   <div class="relative flex-shrink-0 ${(!state.auth || state.auth.role === 'gvcn') ? 'cursor-pointer group hover:scale-105 transition-transform' : ''}" ${(!state.auth || state.auth.role === 'gvcn') ? 'onclick="openEditAdminModal()"' : ''}>
+                   <div class="relative flex-shrink-0 ${(!state.auth || state.auth.role === 'gvcn' || state.auth.role === 'dev') ? 'cursor-pointer group hover:scale-105 transition-transform' : ''}" ${(!state.auth || state.auth.role === 'gvcn' || state.auth.role === 'dev') ? 'onclick="openEditAdminModal()"' : ''}>
                         ${getAvatarImg(state.admin.avatarUrl, state.admin.name, "w-9 h-9")}
                     </div>
                 </div>
@@ -1398,6 +1407,8 @@ function renderHeader() {
           if (quickCount) quickCount.textContent = String(state.studentBulkMode === 'select' ? (state.studentQuickSelectedIds || []).length : visibleCount);
           const selectedCount = document.getElementById('hs-selected-count');
           if (selectedCount) selectedCount.textContent = String((state.studentQuickSelectedIds || []).length);
+          const moveCount = document.getElementById('student-move-count');
+          if (moveCount) moveCount.textContent = String((state.studentQuickSelectedIds || []).length);
 
           const clearBtn = document.getElementById('hs-clear-search');
           if (clearBtn) clearBtn.classList.toggle('hidden', !(state.studentSearch || ''));
@@ -1548,7 +1559,7 @@ function renderHeader() {
                     <button onclick="toggleStudentMenu(event, ${s.id})" class="text-slate-300 hover:text-slate-600 p-1 rounded-full focus:outline-none transition-colors"><i class="ph-bold ph-dots-three-vertical text-xl"></i></button>
                     <div id="student-menu-${s.id}" class="student-dropdown hidden absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-slate-100 overflow-hidden z-30 p-2 animate-fade-in">
                         <button onclick="openStudentHistoryModal(${s.id})" class="w-full text-left px-3 py-2.5 text-sm text-emerald-600 hover:bg-slate-50 rounded-lg font-bold flex items-center gap-2.5"><i class="ph-bold ph-clock-counter-clockwise text-lg"></i> Lịch sử</button>
-                        ${state.auth.role === 'gvcn' ? `<button onclick="deleteStudent(${s.id})" class="w-full text-left px-3 py-2.5 text-sm text-red-600 hover:bg-slate-50 rounded-lg font-bold flex items-center gap-2.5"><i class="ph-fill ph-trash text-lg"></i> Xóa</button>` : ''}
+                        ${(state.auth.role === 'gvcn' || state.auth.role === 'dev') ? `<button onclick="deleteStudent(${s.id})" class="w-full text-left px-3 py-2.5 text-sm text-red-600 hover:bg-slate-50 rounded-lg font-bold flex items-center gap-2.5"><i class="ph-fill ph-trash text-lg"></i> Xóa</button>` : ''}
                     </div>
                 </div>
 
@@ -1722,6 +1733,7 @@ function renderHeader() {
                         <button onclick="setStudentBulkMode('all')" class="px-3 py-2 rounded-xl border text-xs font-bold transition-colors ${state.studentBulkMode !== 'select' ? 'bg-emerald-700 text-white border-emerald-700' : 'bg-white text-slate-600 border-slate-200'}"><i class="ph-bold ph-users-three mr-1"></i>Tất cả phù hợp</button>
                         <button onclick="setStudentBulkMode('select')" class="px-3 py-2 rounded-xl border text-xs font-bold transition-colors ${state.studentBulkMode === 'select' ? 'bg-emerald-700 text-white border-emerald-700' : 'bg-white text-slate-600 border-slate-200'}"><i class="ph-bold ph-check-square-offset mr-1"></i>Chọn nhiều học sinh <span class="opacity-80">(<b id="hs-selected-count">${(state.studentQuickSelectedIds || []).length}</b>)</span></button>
                         ${state.studentBulkMode === 'select' ? `<button onclick="selectAllMatchingStudents()" class="px-3 py-2 rounded-xl border border-emerald-200 bg-white text-emerald-700 text-xs font-bold"><i class="ph-bold ph-checks mr-1"></i>Chọn tất cả phù hợp</button><button onclick="clearQuickStudentSelection()" class="px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-500 text-xs font-bold">Bỏ chọn</button>` : ''}
+                        <button onclick="toggleStudentMoveMode()" class="px-3 py-2 rounded-xl border text-xs font-bold transition-colors ${state.studentMoveMode ? 'bg-indigo-700 text-white border-indigo-700' : 'bg-white text-indigo-700 border-indigo-200'}"><i class="ph-bold ph-arrows-left-right mr-1"></i>${state.studentMoveMode ? 'Đang đổi tổ' : 'Đổi tổ nhanh'}</button>
                     </div>
                     <div class="flex flex-col sm:flex-row gap-2">
                         <select id="hs-quick-criterion" onchange="state.studentQuickCriterion=this.value" class="flex-1 min-w-0 px-3 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-300">${quickCriterionOptionsHtml}</select>
@@ -1733,6 +1745,21 @@ function renderHeader() {
                     ${sectionsHtml || '<div class="text-center py-16 text-slate-400 font-bold italic">Chưa có học sinh nào trong lớp</div>'}
                 </div>
 
+                ${!isBGH ? `
+                <div id="student-move-bar" class="student-move-bar ${state.studentMoveMode ? '' : 'hidden'}">
+                    <div class="flex items-center justify-between gap-3 mb-2">
+                        <div class="flex items-center gap-2 min-w-0"><span class="w-9 h-9 shrink-0 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center"><i class="ph-bold ph-arrows-left-right text-lg"></i></span><div class="min-w-0"><div class="font-black text-slate-800 text-sm">Đổi tổ nhanh</div><div class="text-[11px] text-slate-500">Chạm lần lượt vào học sinh cần chuyển.</div></div></div>
+                        <button onclick="toggleStudentMoveMode()" class="px-3 py-2 rounded-xl bg-slate-100 text-slate-600 text-xs font-bold shrink-0">Hủy</button>
+                    </div>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <select id="student-move-target" onchange="state.studentMoveTarget=this.value" class="flex-1 min-w-0 px-3 py-3 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-300">
+                            <option value="">Chọn tổ cần chuyển đến</option>
+                            ${(state.groups || []).map(g => `<option value="${escapeHtmlAttr(g.name)}" ${state.studentMoveTarget === g.name ? 'selected' : ''}>${g.name}</option>`).join('')}
+                        </select>
+                        <button onclick="moveSelectedStudentsToGroup()" class="px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm flex items-center justify-center gap-2 shadow-md"><i class="ph-bold ph-check-circle"></i>Chuyển <span id="student-move-count">${(state.studentQuickSelectedIds || []).length}</span> học sinh</button>
+                    </div>
+                </div>` : ''}
+
                 <div id="hs-empty-state" class="hidden text-center py-16">
                     <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center"><i class="ph-bold ph-magnifying-glass text-3xl text-slate-300"></i></div>
                     <div class="font-black text-slate-500 text-lg mb-1">Không tìm thấy học sinh phù hợp</div>
@@ -1742,7 +1769,36 @@ function renderHeader() {
             </div>
         `;
       }
+        window.toggleStudentMoveMode = function() {
+            state.studentMoveMode = !state.studentMoveMode;
+            state.studentQuickSelectedIds = [];
+            state.studentBulkMode = state.studentMoveMode ? 'select' : 'all';
+            if (!state.studentMoveMode) state.studentMoveTarget = '';
+            renderLayout();
+        };
+        window.moveSelectedStudentsToGroup = function() {
+            const select = document.getElementById('student-move-target');
+            const targetGroup = select ? select.value : state.studentMoveTarget;
+            if (!targetGroup) return showToast('Hãy chọn tổ muốn chuyển đến.', 'error');
+            state.studentMoveTarget = targetGroup;
+            const ids = new Set((state.studentQuickSelectedIds || []).map(String));
+            const selected = state.students.filter(s => ids.has(String(s.id)));
+            if (!selected.length) return showToast('Hãy chọn ít nhất một học sinh.', 'error');
+            const changed = selected.filter(s => s.group !== targetGroup);
+            if (!changed.length) return showToast('Các học sinh đã ở trong tổ này rồi.', 'error');
+            if (!confirm(`Chuyển ${changed.length} học sinh sang ${targetGroup}?`)) return;
+            changed.forEach(s => { s.group = targetGroup; });
+            saveData();
+            state.studentQuickSelectedIds = [];
+            state.studentMoveMode = false;
+            state.studentBulkMode = 'all';
+            state.studentMoveTarget = '';
+            renderLayout();
+            showToast(`Đã chuyển ${changed.length} học sinh sang ${targetGroup}.`, 'success');
+        };
+
         window.setStudentBulkMode = function(mode) {
+            state.studentMoveMode = false;
             state.studentBulkMode = mode === 'select' ? 'select' : 'all';
             renderLayout();
         };
@@ -1752,6 +1808,8 @@ function renderHeader() {
             state.studentQuickSelectedIds = Array.from(ids);
             const count = document.getElementById('hs-selected-count');
             if (count) count.textContent = String(ids.size);
+            const moveCount = document.getElementById('student-move-count');
+            if (moveCount) moveCount.textContent = String(ids.size);
             if (state.studentBulkMode === 'select') {
                 const applyCount = document.getElementById('hs-visible-count');
                 if (applyCount) applyCount.textContent = String(ids.size);
@@ -1769,6 +1827,8 @@ function renderHeader() {
             });
             const count = document.getElementById('hs-selected-count');
             if (count) count.textContent = String(ids.size);
+            const moveCount = document.getElementById('student-move-count');
+            if (moveCount) moveCount.textContent = String(ids.size);
             const applyCount = document.getElementById('hs-visible-count');
             if (applyCount) applyCount.textContent = String(ids.size);
         };
@@ -1776,10 +1836,12 @@ function renderHeader() {
             state.studentQuickSelectedIds = [];
             document.querySelectorAll('.student-bulk-checkbox').forEach(box => { box.checked = false; });
             const count = document.getElementById('hs-selected-count'); if (count) count.textContent = '0';
+            const moveCount = document.getElementById('student-move-count'); if (moveCount) moveCount.textContent = '0';
             const applyCount = document.getElementById('hs-visible-count'); if (applyCount) applyCount.textContent = '0';
         };
 
         window.applyQuickPointToVisible = function() {
+            if (state.studentMoveMode) return showToast('Hãy kết thúc hoặc hủy chế độ đổi tổ trước khi chấm điểm.', 'error');
             const select = document.getElementById('hs-quick-criterion');
             const key = select ? select.value : (state.studentQuickCriterion || 'add:0');
             state.studentQuickCriterion = key;
@@ -1803,7 +1865,7 @@ function renderHeader() {
             const scope = state.studentBulkMode === 'select' ? 'đã chọn' : ((state.studentSearch || state.studentGroupFilter !== 'all') ? 'theo bộ lọc hiện tại' : 'toàn bộ danh sách');
             const ok = confirm(`Xác nhận ${action} ${criterion.points} điểm cho ${students.length} học sinh ${scope}?\nLý do: ${criterion.reason} (${criterion.category})`);
             if (!ok) return;
-            const actorName = (state.auth && state.auth.role === 'bcs') ? 'Ban Cán Sự' : 'GVCN';
+            const actorName = (state.auth && state.auth.role === 'bcs') ? 'Ban Cán Sự' : (state.auth && state.auth.role === 'dev') ? 'DEV' : 'GVCN';
             const now = new Date().toISOString();
             students.forEach(student => {
                 student.points = (student.points || 0) + amount;
@@ -2077,7 +2139,7 @@ function renderHeader() {
     if (!student) return;
     
     const pointsToApply = type === 'add' ? points : -points;
-    const actorName = (state.auth && state.auth.role === 'bcs') ? 'Ban Cán Sự' : 'GVCN';
+    const actorName = (state.auth && state.auth.role === 'bcs') ? 'Ban Cán Sự' : (state.auth && state.auth.role === 'dev') ? 'DEV' : 'GVCN';
     
     student.points = (student.points || 0) + pointsToApply; 
     student.stars = Math.max(0, (student.stars || 0) + pointsToApply);
@@ -2125,7 +2187,7 @@ window.executePointsSubmission = function() {
     }
     
     const currentReason = pf.reason.trim();
-    const actorName = (state.auth && state.auth.role === 'bcs') ? 'Ban Cán Sự' : 'GVCN';
+    const actorName = (state.auth && state.auth.role === 'bcs') ? 'Ban Cán Sự' : (state.auth && state.auth.role === 'dev') ? 'DEV' : 'GVCN';
     
     const historyEntry = {
         id: Date.now(),
@@ -8396,7 +8458,8 @@ window.parseExcelToDailySchedule = function(rows) {
             const roleLabels = {
                 'gvcn': 'Giáo viên chủ nhiệm',
                 'bcs': 'Ban cán sự lớp',
-                'bgh': 'Ban giám hiệu'
+                'bgh': 'Ban giám hiệu',
+                'dev': 'Quản trị viên DEV'
             };
 
             // CSS tạo hiệu ứng các dụng cụ học tập bay lên dễ thương
@@ -8491,9 +8554,10 @@ window.parseExcelToDailySchedule = function(rows) {
                             
                             <!-- Tab Phân Quyền -->
                             <div class="flex bg-slate-50 p-1.5 rounded-2xl mb-4 border border-slate-100 shadow-inner">
-                                <button data-dev-role="gvcn" onclick="state.loginRoleSelect='gvcn'; renderLayout();" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all ${state.loginRoleSelect === 'gvcn' ? 'bg-[#1e1b4b] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}">GVCN</button>
-                                <button data-dev-role="bcs" onclick="state.loginRoleSelect='bcs'; renderLayout();" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all ${state.loginRoleSelect === 'bcs' ? 'bg-[#1e1b4b] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}">BCS</button>
-                                <button data-dev-role="bgh" onclick="state.loginRoleSelect='bgh'; renderLayout();" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all ${state.loginRoleSelect === 'bgh' ? 'bg-[#1e1b4b] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}">BGH</button>
+                                <button data-dev-role="gvcn" onclick="window.__devRoleArmed=false; state.loginRoleSelect='gvcn'; renderLayout();" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all ${state.loginRoleSelect === 'gvcn' ? 'bg-[#1e1b4b] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}">GVCN</button>
+                                <button data-dev-role="bcs" onclick="window.__devRoleArmed=false; state.loginRoleSelect='bcs'; renderLayout();" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all ${state.loginRoleSelect === 'bcs' ? 'bg-[#1e1b4b] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}">BCS</button>
+                                <button data-dev-role="bgh" onclick="window.__devRoleArmed=false; state.loginRoleSelect='bgh'; renderLayout();" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all ${state.loginRoleSelect === 'bgh' ? 'bg-[#1e1b4b] text-white shadow-md' : 'text-slate-500 hover:text-slate-800'}">BGH</button>
+                                ${window.__devRoleArmed ? `<button data-dev-role="dev" onclick="state.loginRoleSelect='dev'; renderLayout();" class="flex-1 py-3 rounded-xl text-xs md:text-sm font-black transition-all ${state.loginRoleSelect === 'dev' ? 'bg-emerald-600 text-white shadow-md' : 'text-emerald-700 hover:text-emerald-900'}">DEV</button>` : ''}
                             </div>
                             
                             <div class="text-center text-sm font-semibold text-blue-600 bg-blue-50 py-2.5 rounded-xl mb-6 border border-blue-100">
@@ -8566,11 +8630,17 @@ window.parseExcelToDailySchedule = function(rows) {
                 'bcs': '123', 
                 'bgh': '1234' 
             }; 
+            const isDev = state.loginRoleSelect === 'dev';
+            const isValid = isDev
+                ? (!!window.verifyDevPassword && window.verifyDevPassword(pwd))
+                : pwd === passwords[state.loginRoleSelect];
             
-            if (pwd === passwords[state.loginRoleSelect]) {
+            if (isValid) {
                 state.auth.loggedIn = true;
                 state.auth.role = state.loginRoleSelect;
-                state.currentTab = 'tong-quan'; // Đưa về trang chủ
+                state.currentTab = 'tong-quan'; // DEV cũng vào trang chủ như các tài khoản khác
+                window.__devRoleArmed = false;
+                if (isDev && window.DEV && typeof window.DEV.activateLogin === 'function') window.DEV.activateLogin();
                 renderLayout();
                 showToast(`Đăng nhập thành công (${state.loginRoleSelect.toUpperCase()})`, "success");
             } else {
@@ -8593,7 +8663,15 @@ window.parseExcelToDailySchedule = function(rows) {
         };
 
         window.logout = function() {
+            if (state.auth && state.auth.role === 'dev') {
+                try { sessionStorage.removeItem('devUnlocked'); } catch (e) {}
+                const chip = document.getElementById('dev-chip'); if (chip) chip.remove();
+                if (window.DEV && typeof window.DEV.close === 'function') window.DEV.close();
+                window.__devRoleArmed = false;
+            }
             state.auth.loggedIn = false;
+            state.auth.role = 'gvcn';
+            state.loginRoleSelect = 'gvcn';
             renderLayout();
         };
 
@@ -8719,7 +8797,7 @@ window.logBCSAction = function(actionDesc) {
     state.auditLogs.unshift({
         id: Date.now(),
         time: timeStr,
-        actor: (state.auth && state.auth.role === 'bcs') ? 'Ban Cán Sự' : (state.auth && state.auth.role === 'bgh') ? 'Ban Giám Hiệu' : 'GVCN',
+        actor: (state.auth && state.auth.role === 'bcs') ? 'Ban Cán Sự' : (state.auth && state.auth.role === 'bgh') ? 'Ban Giám Hiệu' : (state.auth && state.auth.role === 'dev') ? 'DEV' : 'GVCN',
         content: actionDesc
     });
     
@@ -9505,6 +9583,7 @@ window.deleteHistoryRecord = function(studentId, recordId) {
     }
     function toBinaryString(str) { return unescape(encodeURIComponent(str)); } // UTF-8 -> chuỗi byte
     function checkPassword(pw) { return sha256(toBinaryString(DEV_SALT + pw)) === DEV_HASH; }
+    window.verifyDevPassword = checkPassword;
 
     // ---- Tiện ích ----
     function $(id) { return document.getElementById(id); }
@@ -9602,21 +9681,24 @@ window.deleteHistoryRecord = function(studentId, recordId) {
     // ==================== ĐĂNG NHẬP DEV ====================
     var fails = 0, lockedUntil = 0;
     function openLogin() {
-        if (isUnlocked()) return openPanel();
+        // DEV đăng nhập bằng đúng form và nút đăng nhập chung, sau đó vào dashboard bình thường.
         closeLogin();
-        document.body.insertAdjacentHTML('beforeend',
-            '<div class="dv-overlay" id="dev-login"><div class="dv-box" id="dv-loginbox">' +
-            '<h3>&gt;_ DEV MODE</h3><p>Nhập mật khẩu dev để tiếp tục.</p>' +
-            '<input id="dv-pw" class="dv-input" type="password" autocomplete="off" placeholder="Mật khẩu" />' +
-            '<div class="dv-err" id="dv-err"></div>' +
-            '<button class="dv-btn dv-pri dv-block" onclick="DEV.submit()">Đăng nhập</button>' +
-            '<button class="dv-btn dv-block" onclick="DEV.closeLogin()">Hủy</button></div></div>');
-        var pw = $('dv-pw');
-        pw.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
-        setTimeout(function () { pw.focus(); }, 50);
+        window.__devRoleArmed = true;
+        if (typeof state !== 'undefined') {
+            if (!state.auth) state.auth = { loggedIn: false, role: 'gvcn' };
+            state.auth.loggedIn = false;
+            state.loginRoleSelect = 'dev';
+            renderLayout();
+            setTimeout(function () { var input = $('login-password'); if (input) input.focus(); }, 80);
+        }
     }
     function closeLogin() { var el = $('dev-login'); if (el) el.remove(); }
     function submit() {
+        var regularPassword = $('login-password');
+        if (regularPassword && window.handleLogin) {
+            state.loginRoleSelect = 'dev';
+            return window.handleLogin();
+        }
         var err = $('dv-err'), pw = $('dv-pw'); if (!pw) return;
         var now = Date.now();
         if (now < lockedUntil) { err.textContent = 'Thử lại sau ' + Math.ceil((lockedUntil - now) / 1000) + ' giây.'; return; }
@@ -9871,6 +9953,7 @@ window.deleteHistoryRecord = function(studentId, recordId) {
 
     window.DEV = {
         submit: submit, closeLogin: closeLogin, open: openPanel, close: closePanel, lock: lock, tab: setTab,
+        activateLogin: function () { setUnlocked(true); showChip(); },
         exportShared: function () { download('DEV_DuLieuDungChung_' + today() + '.json', JSON.stringify(getSharedState(), null, 2)); },
         exportFull: function () { download('DEV_Full_' + today() + '.json', JSON.stringify(state, null, 2)); },
         importFile: importFile, loadEditor: loadEditor, applyEditor: applyEditor,
@@ -9881,5 +9964,5 @@ window.deleteHistoryRecord = function(studentId, recordId) {
 })();
 
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a574016efb4add3e',t:'MTc5NDEzNDkwOQ=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a574016efb4add3e',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a57a3f6dfe8bddc7',t:'MTc5NDIwMDM2Mw=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a57a3f6dfe8bddc7',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
